@@ -1,7 +1,7 @@
 # Lee el catalogo PUBLICO de Shopify de cada tienda (sin login, sin proxies, ritmo suave).
 # Devuelve total de productos, top 10 mas vendidos y 10 mas recientes, o NO VERIFICABLE.
 import json, re, time, urllib.request, urllib.error
-UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36"
+UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1"  # catalogo: se pide como movil
 PAUSE_REQ = 3
 
 def _get(url):
