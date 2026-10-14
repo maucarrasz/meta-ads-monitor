@@ -10,6 +10,8 @@ PAUSE = 240
 MAX_NONE = int(os.environ.get("MAX_NONE", "5"))
 BASE_ID = os.environ.get("BASE_ID", "1cfilechpzK22smRSAz2XatjWwkNX-y70ojc1UMifE8w")
 ING_TAB = os.environ.get("INGESTA_TAB", "Ingesta_Diaria")
+# Tiendas que se leen y guardan en historial pero NO van a Mini Sniper (decision de Mauricio).
+NO_INGESTA = {"info.doutornature.com"}
 LIMA = datetime.timezone(datetime.timedelta(hours=-5))
 try:
     ya = ingesta_existing(BASE_ID, ING_TAB)
@@ -24,7 +26,7 @@ for i, s in enumerate(stores):
     rec = [datetime.datetime.now(LIMA).date().isoformat(), s["tienda"], s["dominio"], res, est]
     print(rec, flush=True)
     append_history(SHEET_ID, [rec])
-    if isinstance(res, int) and (rec[0], s["dominio"]) not in ya:
+    if isinstance(res, int) and s["dominio"] not in NO_INGESTA and (rec[0], s["dominio"]) not in ya:
         try:
             append_ingesta(BASE_ID, ING_TAB, rec[0], s["dominio"], s["tienda"], res, datetime.datetime.now(LIMA).isoformat(timespec="seconds"))
         except Exception as e:
