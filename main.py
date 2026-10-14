@@ -6,7 +6,7 @@ from scraper import read_count
 from sheets import read_stores, append_history, ingesta_existing, append_ingesta
 
 SHEET_ID = os.environ["SHEET_ID"]
-LIMIT = int(os.environ.get("MAX_STORES", "55"))
+LIMIT = int(os.environ.get("MAX_STORES", "500"))
 PAUSE = 240
 MAX_NONE = int(os.environ.get("MAX_NONE", "5"))
 BASE_ID = os.environ.get("BASE_ID", "1cfilechpzK22smRSAz2XatjWwkNX-y70ojc1UMifE8w")
