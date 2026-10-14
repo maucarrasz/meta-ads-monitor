@@ -24,3 +24,4 @@ jobs:
         env:
           SHEET_ID: 1ksNMiSje9A94SdYWDrCGRI-4Obkuqvgqftf3oauYqM0
           MAX_STORES: ${{ vars.MAX_STORES || '55' }}
+          INGESTA_TAB: ${{ vars.INGESTA_TAB || 'Ingesta_Diaria' }}
