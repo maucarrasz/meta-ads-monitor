@@ -1,12 +1,11 @@
-import os, json
-from google.oauth2.service_account import Credentials
+import google.auth
 from googleapiclient.discovery import build
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
 def _svc():
-    info = json.loads(os.environ["GOOGLE_SA_JSON"])
-    return build("sheets", "v4", credentials=Credentials.from_service_account_info(info, scopes=SCOPES)).spreadsheets()
+    creds, _ = google.auth.default(scopes=SCOPES)
+    return build("sheets", "v4", credentials=creds, cache_discovery=False).spreadsheets()
 
 def read_stores(sheet_id, limit=None):
     rows = _svc().values().get(spreadsheetId=sheet_id, range="Hoja 1!A2:D").execute().get("values", [])
