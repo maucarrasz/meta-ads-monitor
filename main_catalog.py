@@ -28,6 +28,7 @@ for i, s in enumerate(read_stores(SHEET_ID, LIMIT)):
             rows += [[hoy, t, d, "VENDIDO", n, r["producto"], r["link"], r["precio"], r["publicado"], c["total"], "OK"] for n, r in enumerate(c["vendidos"], 1)]
         else:
             rows.append([hoy, t, d, "VENDIDO", "", "", "", "", "", c["total"], "NO VERIFICABLE"])
-        rows += [[hoy, t, d, "RECIENTE", n, r["producto"], r["link"], r["precio"], r["publicado"], c["total"], "OK"] for n, r in enumerate(c["recientes"], 1)]
+        sm = c.get("fuente") == "sitemap"
+        rows += [[hoy, t, d, "ACTUALIZADO" if sm else "RECIENTE", n, r["producto"], r["link"], r["precio"], r["publicado"], c["total"], "OK (sitemap, fecha = ultima actualizacion)" if sm else "OK"] for n, r in enumerate(c["recientes"], 1)]
     put(rows); print(t, d, rows[0][-1], flush=True)
 print("sin catalogo:", nv)
