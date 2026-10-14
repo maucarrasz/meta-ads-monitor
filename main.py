@@ -1,5 +1,6 @@
 # Corrida diaria: lee tiendas activo=SI en el orden de la hoja (USA/EU, LATAM, Peru), 240 s entre tiendas.
 # Guarda cada resultado apenas lo lee. Sale con error (-> email de GitHub) si Facebook pide login o hay muchos NONE.
+# Reparto fijo en 4 robots (SHARD 0-3): el robot k lee las tiendas de la lista con posicion % 4 == k. SHARD=all lee todas.
 import os, sys, time, datetime
 from scraper import read_count
 from sheets import read_stores, append_history, ingesta_existing, append_ingesta
@@ -10,6 +11,8 @@ PAUSE = 240
 MAX_NONE = int(os.environ.get("MAX_NONE", "5"))
 BASE_ID = os.environ.get("BASE_ID", "1cfilechpzK22smRSAz2XatjWwkNX-y70ojc1UMifE8w")
 ING_TAB = os.environ.get("INGESTA_TAB", "Ingesta_Diaria")
+SHARD = os.environ.get("SHARD", "all")
+NSHARDS = 4
 # Tiendas que se leen y guardan en historial pero NO van a Mini Sniper (decision de Mauricio).
 NO_INGESTA = {"info.doutornature.com"}
 LIMA = datetime.timezone(datetime.timedelta(hours=-5))
@@ -19,6 +22,9 @@ except Exception as e:
     print("AVISO: no pude leer Ingesta:", str(e)[:100], flush=True); ya = set()
 
 stores = read_stores(SHEET_ID, LIMIT)
+if SHARD != "all":
+    stores = [s for j, s in enumerate(stores) if j % NSHARDS == int(SHARD)]
+print(f"Robot {SHARD}: {len(stores)} tiendas:", [s["dominio"] for s in stores], flush=True)
 nones, login = 0, False
 for i, s in enumerate(stores):
     if i: time.sleep(PAUSE)
@@ -34,6 +40,6 @@ for i, s in enumerate(stores):
     if est == "LOGIN_REQUIRED": login = True; break
     if res == "NONE": nones += 1
 if login:
-    print("ALERTA: Facebook pide login. Se detuvo la corrida."); sys.exit(2)
+    print("ALERTA: Facebook pide login. Se detuvo este robot, sin reintentos."); sys.exit(2)
 if nones > MAX_NONE:
     print(f"ALERTA: {nones} tiendas sin dato (NONE)."); sys.exit(3)
