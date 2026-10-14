@@ -2,7 +2,8 @@ import re, sys, json, os
 from playwright.sync_api import sync_playwright
 
 STATE = os.path.join(os.path.dirname(__file__), "..", "session", "state.json")
-LOGIN_MARKERS = ["log in", "confirm your identity", "checkpoint", "iniciar sesión", "confirma tu identidad"]
+# "log in" solo NO sirve: la pagina publica de Ads Library siempre trae un boton "Log in".
+LOGIN_MARKERS = ["confirm your identity", "checkpoint", "iniciar sesión para continuar", "confirma tu identidad", "you must log in", "log in to continue"]
 
 def read_count(url, headless=True, use_state=True):
     """Devuelve (resultado, estado). resultado = entero, 'LOGIN_REQUIRED' o 'NONE'. Nunca inventa."""
@@ -25,10 +26,10 @@ def read_count(url, headless=True, use_state=True):
     m = re.search(r"~?\s*([\d,\.]+)\s+results?", text, re.I)
     if m:
         return int(re.sub(r"[^\d]", "", m.group(1))), "OK"
-    if "login" in url_now or "checkpoint" in url_now or any(k in low for k in LOGIN_MARKERS):
-        return "LOGIN_REQUIRED", "LOGIN_REQUIRED"
     if re.search(r"no ads match|no results|0 results", low):
         return 0, "OK"
+    if "login" in url_now or "checkpoint" in url_now or any(k in low for k in LOGIN_MARKERS):
+        return "LOGIN_REQUIRED", "LOGIN_REQUIRED"
     return "NONE", "NONE"
 
 if __name__ == "__main__":
