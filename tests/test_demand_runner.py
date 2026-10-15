@@ -34,6 +34,27 @@ def test_claim_winner_reads_then_completes_with_same_lease(monkeypatch):
     assert calls[0][1]['p_domain'] == 'example.com'
 
 
+def test_www_claim_and_callback_preserve_exact_domain_evidence(monkeypatch):
+    runner = importlib.import_module('demand_runner')
+    config(monkeypatch)
+    monkeypatch.setenv('INPUT_DOMAIN', 'www.example.com')
+    calls, reads = [], []
+    def rpc(name, payload):
+        calls.append((name, payload))
+        return {'domain': 'www.example.com'} if name == 'ads_demand_claim' else True
+    def reader(domain):
+        reads.append(domain)
+        return runner.observation(domain, 42, 'OK', {'text': '42 results', 'count_text': '42 results'})
+    monkeypatch.setattr(runner, 'rpc', rpc)
+    monkeypatch.setattr(runner, 'read_domain', reader)
+    assert runner.main() == 0
+    assert reads == ['www.example.com']
+    assert calls[0][1]['p_domain'] == 'www.example.com'
+    from urllib.parse import parse_qs, urlsplit
+    result = calls[1][1]['p_result']
+    assert parse_qs(urlsplit(result['evidence_url']).query)['q'] == ['"www.example.com"']
+
+
 def test_duplicate_claim_never_starts_browser_or_callback(monkeypatch):
     runner = importlib.import_module('demand_runner')
     config(monkeypatch)

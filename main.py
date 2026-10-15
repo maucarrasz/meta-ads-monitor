@@ -5,11 +5,12 @@ import signal
 import time
 
 from ads_worker import read_domain
-from sheets import read_base_stores, append_history, ingesta_existing, append_ingesta
+from sheets import read_base_stores, read_seguimiento, append_history, ingesta_existing, append_ingesta
 
 BASE_ID = "1cfilechpzK22smRSAz2XatjWwkNX-y70ojc1UMifE8w"
 LIMA = datetime.timezone(datetime.timedelta(hours=-5))
 PAUSE = 240
+NO_INGESTA = {"info.doutornature.com"}
 
 
 def seconds_to_deadline(now=None):
@@ -26,6 +27,8 @@ def _deadline(signum, frame):
 
 
 def run():
+    if os.environ.get("SOLO_LISTA"):
+        return run_stores()
     remaining = seconds_to_deadline()
     if remaining <= 0:
         print("Fin: ya son las 12:00 Lima.", flush=True)
@@ -48,7 +51,21 @@ def run_stores():
     tab = os.environ.get("INGESTA_TAB", "Ingesta_Diaria")
     stores = read_base_stores(BASE_ID, limit)
     existing = ingesta_existing(BASE_ID, tab)
-    print(f"Robot all: {len(stores)} tiendas activas en Base unica/Tiendas", flush=True)
+    shard = os.environ.get("SHARD", "all")
+    if shard not in {"all", "0", "1", "2", "3"}:
+        raise ValueError("INVALID_SHARD")
+    if shard != "all":
+        stores = [store for index, store in enumerate(stores) if index % 4 == int(shard)]
+    today = datetime.datetime.now(LIMA).date().isoformat()
+    stores = [store for store in stores if (today, store["dominio"]) not in existing]
+    followup = read_seguimiento(history_id, today) if shard in {"all", "0"} else []
+    followup_domains = {store["dominio"] for store in followup}
+    domains = {store["dominio"] for store in stores}
+    stores += [store for store in followup if store["dominio"] not in domains]
+    if os.environ.get("SOLO_LISTA"):
+        print("SOLO_LISTA", len(stores), [store["dominio"] for store in stores], flush=True)
+        return 0
+    print(f"Robot {shard}: {len(stores)} tiendas pendientes desde Base unica/Tiendas y seguimiento personal", flush=True)
     nones = 0
     for index, store in enumerate(stores):
         if index:
@@ -62,7 +79,8 @@ def run_stores():
         record = [now.date().isoformat(), store["tienda"], store["dominio"], value if value is not None else "NONE", state]
         append_history(history_id, [record])
         print(record, flush=True)
-        if value is not None and (record[0], store["dominio"]) not in existing:
+        if (value is not None and store["dominio"] not in followup_domains
+                and store["dominio"] not in NO_INGESTA and (record[0], store["dominio"]) not in existing):
             append_ingesta(BASE_ID, tab, record[0], store["dominio"], store["tienda"], value, now.isoformat(timespec="seconds"), count_text=result.get("_count_text"))
             existing.add((record[0], store["dominio"]))
         if state in {"LOGIN_REQUIRED", "BLOCKED"}:

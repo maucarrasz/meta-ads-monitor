@@ -19,7 +19,7 @@ READ_TIMEOUT = 110
 
 
 def valid_domain(domain):
-    if not isinstance(domain, str) or len(domain) > 253 or domain != domain.lower() or domain.startswith("www."):
+    if not isinstance(domain, str) or len(domain) > 253 or domain != domain.lower():
         return False
     if not domain.isascii() or not re.fullmatch(r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?", domain):
         return False

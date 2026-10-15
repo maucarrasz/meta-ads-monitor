@@ -1,10 +1,17 @@
 name: daily
 on:
   schedule:
-    - cron: "30 12 * * *"   # 07:30 Lima; una corrida all, fin duro 12:00 Lima
+    - cron: "30 12 * * *"   # 07:30 Lima: un run all reanudable, fin duro 12:00
   workflow_dispatch:
+    inputs:
+      shard:
+        description: "Robot 0, 1, 2, 3 o all (todas las tiendas)"
+        default: "all"
+      solo_lista:
+        description: "1 = solo imprimir la lista de tiendas (sin Facebook)"
+        default: ""
 concurrency:
-  group: mini-sniper-meta-daily
+  group: minisniper-ads   # un solo run de Mini Sniper a la vez
   cancel-in-progress: false
 permissions:
   contents: read
@@ -28,4 +35,5 @@ jobs:
           SHEET_ID: 1ksNMiSje9A94SdYWDrCGRI-4Obkuqvgqftf3oauYqM0
           MAX_STORES: ${{ vars.MAX_STORES || '500' }}
           INGESTA_TAB: ${{ vars.INGESTA_TAB || 'Ingesta_Diaria' }}
-          SHARD: all
+          SHARD: ${{ github.event.inputs.shard || 'all' }}
+          SOLO_LISTA: ${{ github.event.inputs.solo_lista }}

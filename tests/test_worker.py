@@ -64,7 +64,7 @@ def test_signature_covers_exact_raw_body(worker):
     assert calls == []
 
 
-@pytest.mark.parametrize("domain", ["https://example.com", "example.com/x", "localhost", "127.0.0.1", "x.com?x=a", "EXAMPLE.com", "www.example.com", "tiendá.com", "example.com:443", "-bad.com"])
+@pytest.mark.parametrize("domain", ["https://example.com", "example.com/x", "localhost", "127.0.0.1", "x.com?x=a", "EXAMPLE.com", "tiendá.com", "example.com:443", "-bad.com"])
 def test_invalid_domains_rejected_before_browser(worker, domain):
     status, _, calls = request(worker, body=json.dumps({"job_id": str(uuid.uuid4()), "domain": domain}).encode())
     assert status == 400
@@ -100,6 +100,15 @@ def test_fixed_meta_url(worker):
     assert values["active_status"] == ["active"]
     assert values["country"] == ["ALL"]
     assert values["search_type"] == ["keyword_exact_phrase"]
+
+
+def test_www_domain_keeps_exact_query_and_signed_request_identity(worker):
+    from urllib.parse import parse_qs, urlsplit
+    assert worker.valid_domain('www.example.com')
+    assert parse_qs(urlsplit(worker.ads_url('www.example.com')).query)['q'] == ['"www.example.com"']
+    status, _, calls = request(worker, body=json.dumps({'job_id': str(uuid.uuid4()), 'domain': 'www.example.com'}).encode())
+    assert status == 200
+    assert calls == ['www.example.com']
 
 
 def test_observation_hashes_actual_evidence(worker):

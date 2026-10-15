@@ -1,7 +1,5 @@
 name: catalogo
 on:
-  schedule:
-    - cron: "30 18 * * *"   # 13:30 hora Peru
   workflow_dispatch: {}
 permissions:
   contents: read

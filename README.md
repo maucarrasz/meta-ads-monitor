@@ -4,11 +4,11 @@ Lee el total público de anuncios activos de un dominio en Meta Ads Library. Los
 
 ## Corrida diaria
 
-`daily.yml` tiene una sola programación: `30 12 * * *` (07:30 Lima). Lee todas las tiendas, sin shards, con 240 segundos entre dominios. `main.py` corta a las 12:00 Lima, también si el workflow comienza tarde. No empieza una lectura cuando quedan menos de 120 segundos.
+`daily.yml` tiene una sola programación: `30 12 * * *` (07:30 Lima). El cron lee todas las tiendas, con 240 segundos entre dominios, en el orden regional USA/EU, LATAM, Perú y luego el orden de la hoja. La corrida es reanudable: omite antes de abrir Chrome los dominios que ya tienen una fila de hoy en Ingesta. El dispatch conserva los shards manuales y `solo_lista` para inspeccionar pendientes sin abrir el navegador. `main.py` corta las lecturas a las 12:00 Lima, también si el workflow comienza tarde. No empieza una lectura cuando quedan menos de 120 segundos.
 
 La lista autoritativa es `Tiendas` de la Base única `1cfilechpzK22smRSAz2XatjWwkNX-y70ojc1UMifE8w`. Se resuelven las columnas por cabecera; requiere `dominio` y `decision`, acepta `SI`/`SÍ` y excluye estados que comienzan por `Descartad`. Si un dominio aparece con decisiones contradictorias queda inactivo. Las bajas no borran ni reescriben historial.
 
-`SHEET_ID` sigue siendo únicamente el destino del historial legado. Los conteos válidos se añaden a `Ingesta_Diaria` en la Base única. Un bloqueo o login detiene la corrida sin reintentos. El workflow no cancela corridas previas. `spy.py`, `spy.yml` y el workflow de catálogo siguen siendo independientes.
+`SHEET_ID` conserva el historial legado y la lista personal `Seguimiento_Ads`: el seguimiento vigente se añade al final del robot all/0 y nunca se envía a Ingesta. Se conserva la exclusión personal previa de `info.doutornature.com`. Los demás conteos válidos se añaden a `Ingesta_Diaria` en la Base única. Un bloqueo o login detiene la corrida sin reintentos. El workflow no cancela corridas previas y conserva el grupo de concurrencia `minisniper-ads`. `spy.py`, `spy.yml` y el workflow de catálogo siguen siendo independientes; `catalogo.yml` permanece manual, sin cron propio, porque el catálogo diario se programa desde Mini Sniper.
 
 ## Worker HTTP para Mini Sniper
 
@@ -18,7 +18,7 @@ La lista autoritativa es `Tiendas` de la Base única `1cfilechpzK22smRSAz2XatjWw
 {"job_id":"7cce71d0-d613-4ff9-ae7a-d628edb184da","domain":"example.com"}
 ```
 
-El dominio debe llegar normalizado: ASCII en minúsculas, sin `www.`, esquema, ruta, puerto ni dirección IP. Solo se construye una URL fija bajo `https://www.facebook.com/ads/library/` con `active_status=active`, `country=ALL`, `search_type=keyword_exact_phrase` y `q` con el dominio entre comillas. Nunca se recibe una URL de destino.
+El dominio debe llegar normalizado: ASCII en minúsculas, sin esquema, ruta, puerto ni dirección IP. Se admite `www.` como parte del dominio exacto recibido y se conserva en la consulta y la evidencia; no se transforma al dominio raíz. Solo se construye una URL fija bajo `https://www.facebook.com/ads/library/` con `active_status=active`, `country=ALL`, `search_type=keyword_exact_phrase` y `q` con el dominio entre comillas. Nunca se recibe una URL de destino.
 
 El caller y el worker comparten `MINI_SNIPER_ADS_WORKER_SECRET`. Headers:
 
