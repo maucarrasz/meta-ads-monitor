@@ -1,6 +1,8 @@
 import os
 import google.auth
+import unicodedata
 from googleapiclient.discovery import build
+from ads_worker import valid_domain
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 # UNICA fuente de verdad de las tiendas: pestana "Tiendas" de la Base unica (Sniper | Historicos de tiendas).
@@ -42,6 +44,39 @@ def read_stores(_sheet_id=None, limit=None):
     if not stores: raise RuntimeError("Tiendas sin filas activas: no se corre (no se inventa lista)")
     return stores[:limit] if limit else stores
 
+def _norm(value):
+    return "".join(c for c in unicodedata.normalize("NFD", value.strip().lower()) if unicodedata.category(c) != "Mn")
+
+def parse_base_stores(rows):
+    headers = {_norm(h): i for i, h in enumerate(rows[0] if rows else [])}
+    if not {"dominio", "decision"}.issubset(headers):
+        raise ValueError("TIENDAS_HEADER_MISSING")
+    states, stores, regions = {}, {}, {}
+    for row in rows[1:]:
+        def cell(name):
+            index = headers.get(name, len(row))
+            return row[index].strip() if index < len(row) else ""
+        domain = cell("dominio").lower()
+        for prefix in ("https://", "http://"):
+            if domain.startswith(prefix): domain = domain[len(prefix):]
+        domain = domain.split("/", 1)[0].split("?", 1)[0]
+        if domain.startswith("www."): domain = domain[4:]
+        if not valid_domain(domain): continue
+        active = _norm(cell("decision")) == "si" and not _norm(cell("estado")).startswith("descartad")
+        states.setdefault(domain, []).append(active)
+        stores.setdefault(domain, {"dominio": domain, "tienda": cell("tienda") or cell("nombre") or domain})
+        regions.setdefault(domain, _region_key(cell("region")))
+    active = [domain for domain, flags in states.items() if all(flags)]
+    active.sort(key=lambda domain: regions[domain])
+    return [stores[domain] for domain in active]
+
+def read_base_stores(base_id, limit=None):
+    rows = _svc().values().get(spreadsheetId=base_id, range="Tiendas!A:ZZ").execute().get("values", [])
+    stores = parse_base_stores(rows)
+    if not stores:
+        raise RuntimeError("Tiendas sin filas activas: no se corre (no se inventa lista)")
+    return stores[:limit] if limit else stores
+
 def append_history(sheet_id, recs):
     _svc().values().append(spreadsheetId=sheet_id, range="historial!A:E", valueInputOption="USER_ENTERED",
                            body={"values": recs}).execute()
@@ -59,10 +94,11 @@ def ingesta_existing(base_id, tab):
         rows = []
     return {(r[0], r[1]) for r in rows if len(r) >= 2}
 
-def append_ingesta(base_id, tab, fecha, dominio, tienda, n, leido_en):
-    txt = f"~{n} result" if n == 1 else f"~{n} results"
+def append_ingesta(base_id, tab, fecha, dominio, tienda, n, leido_en, *, count_text):
+    if not isinstance(count_text, str) or not count_text.strip():
+        raise ValueError("MISSING_META_COUNT_TEXT")
     _svc().values().append(spreadsheetId=base_id, range=f"{tab}!A:H", valueInputOption="RAW",
-                           body={"values": [[fecha, dominio, tienda, n, txt, METODO, leido_en, ""]]}).execute()
+                           body={"values": [[fecha, dominio, tienda, n, count_text, METODO, leido_en, ""]]}).execute()
 
 def read_seguimiento(sheet_id, hoy):
     """Seguimiento propio de ads (no va a Mini Sniper ni a Ingesta): pestana Seguimiento_Ads del tracker, columnas dominio, tienda, desde, hasta (YYYY-MM-DD)."""

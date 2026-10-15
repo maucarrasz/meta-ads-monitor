@@ -1,7 +1,7 @@
 name: daily
 on:
   schedule:
-    - cron: "30 12 * * *"   # 07:30 hora Peru: UN solo run, todas las tiendas, una por una
+    - cron: "30 12 * * *"   # 07:30 Lima: un run all reanudable, fin duro 12:00
   workflow_dispatch:
     inputs:
       shard:
@@ -19,7 +19,7 @@ permissions:
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 340
+    timeout-minutes: 270
     steps:
       - uses: actions/checkout@v4
       - uses: google-github-actions/auth@v2
