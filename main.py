@@ -24,6 +24,9 @@ except Exception as e:
 stores = read_stores(SHEET_ID, LIMIT)
 if SHARD != "all":
     stores = [s for j, s in enumerate(stores) if j % NSHARDS == int(SHARD)]
+# Tiendas eliminadas por Mauricio (15 oct): se quitan DESPUES de repartir, para no mover el reparto de los otros robots del dia.
+EXCLUIR = {"bigan.com.ar", "devocione.com"}
+stores = [s for s in stores if s["dominio"] not in EXCLUIR]
 print(f"Robot {SHARD}: {len(stores)} tiendas:", [s["dominio"] for s in stores], flush=True)
 nones, login = 0, False
 for i, s in enumerate(stores):
