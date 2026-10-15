@@ -1,7 +1,7 @@
 name: spy
 on:
   schedule:
-    - cron: "0 23 * * *"   # 18:00 hora Peru, despues de los robots de Mini Sniper (hoy terminan ~16:45)
+    - cron: "30 17 * * *"   # 12:30 hora Peru (horario propio del spy personal, desde 16 oct)
   workflow_dispatch:
     inputs:
       solo_lista:
