@@ -1,7 +1,5 @@
 name: catalogo
 on:
-  schedule:
-    - cron: "30 18 * * *"   # 13:30 hora Peru
   workflow_dispatch: {}
 permissions:
   contents: read
@@ -23,3 +21,4 @@ jobs:
         env:
           SHEET_ID: 1ksNMiSje9A94SdYWDrCGRI-4Obkuqvgqftf3oauYqM0
           MAX_STORES: ${{ vars.MAX_STORES || '55' }}
+
