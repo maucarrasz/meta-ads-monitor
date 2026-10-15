@@ -26,6 +26,6 @@ jobs:
       - run: python -m playwright install --with-deps chromium
       - run: python spy.py
         env:
-          SPY_SHEETS: "ECOM:1SoJZ7DUGCrNlwQ4DBuNAjnLnmE-eXfPpycbC-Gzsezc"
+          SPY_SHEETS: "ECOM:1SoJZ7DUGCrNlwQ4DBuNAjnLnmE-eXfPpycbC-Gzsezc,APPS:17Twaxi9-nWjmP14Bx4HRn0EneDXvNtOALNyRACxwl8k,INFOPRODUCTOS:1xbl6jJ6XZrXi5uWETSaT26BflriZwk_x8r3X3c7gRN8"
           SOLO_LISTA: ${{ github.event.inputs.solo_lista }}
 
