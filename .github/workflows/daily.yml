@@ -1,15 +1,18 @@
 name: daily
 on:
   schedule:
-    - cron: "0 14 * * *"    # robot 0, 09:00 hora Peru
-    - cron: "15 15 * * *"   # robot 1, 10:15 hora Peru
-    - cron: "30 16 * * *"   # robot 2, 11:30 hora Peru
-    - cron: "45 17 * * *"   # robot 3, 12:45 hora Peru
+    - cron: "30 12 * * *"   # 07:30 hora Peru: UN solo run, todas las tiendas, una por una
   workflow_dispatch:
     inputs:
       shard:
         description: "Robot 0, 1, 2, 3 o all (todas las tiendas)"
         default: "all"
+      solo_lista:
+        description: "1 = solo imprimir la lista de tiendas (sin Facebook)"
+        default: ""
+concurrency:
+  group: minisniper-ads   # un solo run de Mini Sniper a la vez
+  cancel-in-progress: false
 permissions:
   contents: read
   id-token: write
@@ -32,4 +35,5 @@ jobs:
           SHEET_ID: 1ksNMiSje9A94SdYWDrCGRI-4Obkuqvgqftf3oauYqM0
           MAX_STORES: ${{ vars.MAX_STORES || '500' }}
           INGESTA_TAB: ${{ vars.INGESTA_TAB || 'Ingesta_Diaria' }}
-          SHARD: ${{ github.event.inputs.shard || (github.event.schedule == '0 14 * * *' && '0') || (github.event.schedule == '15 15 * * *' && '1') || (github.event.schedule == '30 16 * * *' && '2') || '3' }}
+          SHARD: ${{ github.event.inputs.shard || 'all' }}
+          SOLO_LISTA: ${{ github.event.inputs.solo_lista }}
