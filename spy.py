@@ -8,7 +8,7 @@ from sheets import _svc
 PAUSE = 240
 MAX_NONE = int(os.environ.get("MAX_NONE", "3"))
 LIMA = datetime.timezone(datetime.timedelta(hours=-5))
-# SPY_SHEETS = "ECOM:<id>,APPS:<id>" (solo los que se pasan; APPS e INFOPRODUCTOS se agregan al confirmarse su lista)
+# SPY_SHEETS = "ECOM:<id>,APPS:<id>,INFOPRODUCTOS:<id>"
 SHEETS = [x.split(":", 1) for x in os.environ["SPY_SHEETS"].split(",") if ":" in x]
 ONLY = os.environ.get("SPY_ONLY", "")  # opcional: ECOM / APPS
 
@@ -23,19 +23,26 @@ def norm(d):
     if d.startswith("www."): d = d[4:]
     return d.split("/")[0]
 
-def activo(estado):
-    e = (estado or "").strip().lower()
-    return e.startswith("aprobad") or e.startswith("seguimiento") or e.startswith("en seguimiento")
+import re
+# Columnas de la pestana Anunciantes segun el tipo de Sheet: (id, dominio, nombre, link, region, pais, estado)
+COLS = {"ECOM": (0, 1, 2, 3, 5, 6, 7), "APPS": (0, 8, 1, None, 9, 10, 11), "INFOPRODUCTOS": (0, 8, 1, None, 9, 10, 11)}
 
-def read_list(sid):
-    rows = _svc().values().get(spreadsheetId=sid, range="Anunciantes!A2:K").execute().get("values", [])
+def activo(estado, hoy):
+    e = (estado or "").strip().lower()
+    if not (e.startswith("aprobad") or e.startswith("seguimiento") or e.startswith("en seguimiento")): return False
+    m = re.search(r"hasta (\d{4}-\d{2}-\d{2})", e)
+    return not (m and hoy > m.group(1))
+
+def read_list(name, sid, hoy):
+    c = COLS[name]
+    rows = _svc().values().get(spreadsheetId=sid, range="Anunciantes!A2:O").execute().get("values", [])
     out, seen = [], set()
     for r in rows:
-        r = r + [""] * (11 - len(r))
-        d = norm(r[1])
-        if not d or d in seen or not activo(r[7]): continue
+        r = r + [""] * (15 - len(r))
+        d = norm(r[c[1]])
+        if not d or d in seen or not activo(r[c[6]], hoy): continue
         seen.add(d)
-        out.append({"store_id": r[0], "dominio": d, "anunciante": r[2], "link": r[3], "region": r[5], "pais": r[6]})
+        out.append({"store_id": r[c[0]], "dominio": d, "anunciante": r[c[2]], "link": r[c[3]] if c[3] is not None else "", "region": r[c[4]], "pais": r[c[5]]})
     return out
 
 def ya_leidos(sid, hoy):
@@ -46,7 +53,7 @@ hoy = datetime.datetime.now(LIMA).date().isoformat()
 plan = []
 for name, sid in SHEETS:
     if ONLY and name != ONLY: continue
-    lst = read_list(sid)
+    lst = read_list(name, sid, hoy)
     hechos = ya_leidos(sid, hoy)
     for s in lst:
         if s["dominio"] not in hechos: plan.append((name, sid, s))
