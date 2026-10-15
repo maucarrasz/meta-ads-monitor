@@ -1,22 +1,18 @@
 name: daily
 on:
   schedule:
-    - cron: "0 14 * * *"    # robot 0, 09:00 hora Peru
-    - cron: "15 15 * * *"   # robot 1, 10:15 hora Peru
-    - cron: "30 16 * * *"   # robot 2, 11:30 hora Peru
-    - cron: "45 17 * * *"   # robot 3, 12:45 hora Peru
+    - cron: "30 12 * * *"   # 07:30 Lima; una corrida all, fin duro 12:00 Lima
   workflow_dispatch:
-    inputs:
-      shard:
-        description: "Robot 0, 1, 2, 3 o all (todas las tiendas)"
-        default: "all"
+concurrency:
+  group: mini-sniper-meta-daily
+  cancel-in-progress: false
 permissions:
   contents: read
   id-token: write
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 340
+    timeout-minutes: 270
     steps:
       - uses: actions/checkout@v4
       - uses: google-github-actions/auth@v2
@@ -32,4 +28,4 @@ jobs:
           SHEET_ID: 1ksNMiSje9A94SdYWDrCGRI-4Obkuqvgqftf3oauYqM0
           MAX_STORES: ${{ vars.MAX_STORES || '500' }}
           INGESTA_TAB: ${{ vars.INGESTA_TAB || 'Ingesta_Diaria' }}
-          SHARD: ${{ github.event.inputs.shard || (github.event.schedule == '0 14 * * *' && '0') || (github.event.schedule == '15 15 * * *' && '1') || (github.event.schedule == '30 16 * * *' && '2') || '3' }}
+          SHARD: all

@@ -1,35 +1,51 @@
-import re, sys, json, os
+import re, sys, json, os, time
 from playwright.sync_api import sync_playwright
 
 STATE = os.path.join(os.path.dirname(__file__), "..", "session", "state.json")
 # "log in" solo NO sirve: la pagina publica de Ads Library siempre trae un boton "Log in".
 LOGIN_MARKERS = ["confirm your identity", "checkpoint", "iniciar sesión para continuar", "confirma tu identidad", "you must log in", "log in to continue"]
 
-def read_count(url, headless=True, use_state=True):
+def read_count(url, headless=True, use_state=True, evidence=None, timeout_ms=110000):
     """Devuelve (resultado, estado). resultado = entero, 'LOGIN_REQUIRED' o 'NONE'. Nunca inventa."""
+    started = time.monotonic()
     with sync_playwright() as p:
-        b = p.chromium.launch(headless=headless)
+        launch = {"headless": headless}
+        if os.environ.get("PLAYWRIGHT_CHROMIUM_CHANNEL"):
+            launch["channel"] = os.environ["PLAYWRIGHT_CHROMIUM_CHANNEL"]
+        b = p.chromium.launch(**launch)
         kw = {"locale": "en-US"}
         if use_state and os.path.exists(STATE):
             kw["storage_state"] = STATE
         ctx = b.new_context(**kw)
         page = ctx.new_page()
         try:
-            page.goto(url, wait_until="domcontentloaded", timeout=60000)
-            page.wait_for_timeout(12000)
-            text = page.inner_text("body")
+            remaining = lambda: max(1, int(timeout_ms - (time.monotonic() - started) * 1000))
+            page.goto(url, wait_until="domcontentloaded", timeout=min(60000, remaining()))
+            page.wait_for_timeout(min(12000, remaining()))
+            text = page.inner_text("body", timeout=remaining())
             url_now = page.url.lower()
         except Exception as e:
             b.close(); return "NONE", "ERROR:" + type(e).__name__
         b.close()
     low = text.lower()
-    m = re.search(r"~?\s*([\d,\.]+)\s+results?", text, re.I)
-    if m:
-        return int(re.sub(r"[^\d]", "", m.group(1))), "OK"
-    if re.search(r"no ads match|no results|0 results", low):
-        return 0, "OK"
+    if evidence is not None:
+        evidence["text"] = text
     if "login" in url_now or "checkpoint" in url_now or any(k in low for k in LOGIN_MARKERS):
         return "LOGIN_REQUIRED", "LOGIN_REQUIRED"
+    if any(k in low for k in ("temporarily blocked", "access denied", "unusual activity", "you’re temporarily blocked", "too many requests")):
+        return "NONE", "BLOCKED"
+    m = re.search(r"(?<![\w.,])(~?)\s*(\d{1,3}(?:,\d{3})+|\d+)\s+results?\b", text, re.I)
+    if m:
+        if evidence is not None:
+            qualifier = re.search(r"(?:about|approximately)\s*$", text[:m.start()], re.I)
+            evidence["is_estimate"] = bool(m.group(1)) or bool(qualifier)
+            evidence["count_text"] = text[qualifier.start() if qualifier else m.start():m.end()].strip()
+        return int(m.group(2).replace(",", "")), "OK"
+    no_matches = re.search(r"no ads match your search criteria|no ads match|no results|0 results", text, re.I)
+    if no_matches:
+        if evidence is not None:
+            evidence["count_text"] = no_matches.group(0)
+        return 0, "OK"
     return "NONE", "NONE"
 
 if __name__ == "__main__":

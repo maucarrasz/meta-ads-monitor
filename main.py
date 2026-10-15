@@ -1,48 +1,76 @@
-# Corrida diaria: lee tiendas activo=SI en el orden de la hoja (USA/EU, LATAM, Peru), 240 s entre tiendas.
-# Guarda cada resultado apenas lo lee. Sale con error (-> email de GitHub) si Facebook pide login o hay muchos NONE.
-# Reparto fijo en 4 robots (SHARD 0-3): el robot k lee las tiendas de la lista con posicion % 4 == k. SHARD=all lee todas.
-import os, sys, time, datetime
-from scraper import read_count
-from sheets import read_stores, append_history, ingesta_existing, append_ingesta
+"""Una corrida diaria desde Base unica/Tiendas; termina a las 12:00 Lima."""
+import datetime
+import os
+import signal
+import time
 
-SHEET_ID = os.environ["SHEET_ID"]
-LIMIT = int(os.environ.get("MAX_STORES", "500"))
-PAUSE = 240
-MAX_NONE = int(os.environ.get("MAX_NONE", "5"))
-BASE_ID = os.environ.get("BASE_ID", "1cfilechpzK22smRSAz2XatjWwkNX-y70ojc1UMifE8w")
-ING_TAB = os.environ.get("INGESTA_TAB", "Ingesta_Diaria")
-SHARD = os.environ.get("SHARD", "all")
-NSHARDS = 4
-# Tiendas que se leen y guardan en historial pero NO van a Mini Sniper (decision de Mauricio).
-NO_INGESTA = {"info.doutornature.com"}
+from ads_worker import read_domain
+from sheets import read_base_stores, append_history, ingesta_existing, append_ingesta
+
+BASE_ID = "1cfilechpzK22smRSAz2XatjWwkNX-y70ojc1UMifE8w"
 LIMA = datetime.timezone(datetime.timedelta(hours=-5))
-try:
-    ya = ingesta_existing(BASE_ID, ING_TAB)
-except Exception as e:
-    print("AVISO: no pude leer Ingesta:", str(e)[:100], flush=True); ya = set()
+PAUSE = 240
 
-stores = read_stores(SHEET_ID, LIMIT)
-if SHARD != "all":
-    stores = [s for j, s in enumerate(stores) if j % NSHARDS == int(SHARD)]
-# Tiendas eliminadas por Mauricio (15 oct): se quitan DESPUES de repartir, para no mover el reparto de los otros robots del dia.
-EXCLUIR = {"bigan.com.ar", "devocione.com"}
-stores = [s for s in stores if s["dominio"] not in EXCLUIR]
-print(f"Robot {SHARD}: {len(stores)} tiendas:", [s["dominio"] for s in stores], flush=True)
-nones, login = 0, False
-for i, s in enumerate(stores):
-    if i: time.sleep(PAUSE)
-    res, est = read_count(s["url_ads_library"], use_state=False)
-    rec = [datetime.datetime.now(LIMA).date().isoformat(), s["tienda"], s["dominio"], res, est]
-    print(rec, flush=True)
-    append_history(SHEET_ID, [rec])
-    if isinstance(res, int) and s["dominio"] not in NO_INGESTA and (rec[0], s["dominio"]) not in ya:
-        try:
-            append_ingesta(BASE_ID, ING_TAB, rec[0], s["dominio"], s["tienda"], res, datetime.datetime.now(LIMA).isoformat(timespec="seconds"))
-        except Exception as e:
-            print("AVISO: no pude escribir en Ingesta:", str(e)[:100], flush=True)
-    if est == "LOGIN_REQUIRED": login = True; break
-    if res == "NONE": nones += 1
-if login:
-    print("ALERTA: Facebook pide login. Se detuvo este robot, sin reintentos."); sys.exit(2)
-if nones > MAX_NONE:
-    print(f"ALERTA: {nones} tiendas sin dato (NONE)."); sys.exit(3)
+
+def seconds_to_deadline(now=None):
+    now = (now or datetime.datetime.now(LIMA)).astimezone(LIMA)
+    return max(0, (now.replace(hour=12, minute=0, second=0, microsecond=0) - now).total_seconds())
+
+
+class DailyDeadline(Exception):
+    pass
+
+
+def _deadline(signum, frame):
+    raise DailyDeadline()
+
+
+def run():
+    remaining = seconds_to_deadline()
+    if remaining <= 0:
+        print("Fin: ya son las 12:00 Lima.", flush=True)
+        return 0
+    signal.signal(signal.SIGALRM, _deadline)
+    signal.setitimer(signal.ITIMER_REAL, remaining)
+    try:
+        return run_stores()
+    except DailyDeadline:
+        print("Fin duro: 12:00 Lima; historial conservado.", flush=True)
+        return 0
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+
+
+def run_stores():
+    history_id = os.environ["SHEET_ID"]
+    limit = int(os.environ.get("MAX_STORES", "500"))
+    max_none = int(os.environ.get("MAX_NONE", "5"))
+    tab = os.environ.get("INGESTA_TAB", "Ingesta_Diaria")
+    stores = read_base_stores(BASE_ID, limit)
+    existing = ingesta_existing(BASE_ID, tab)
+    print(f"Robot all: {len(stores)} tiendas activas en Base unica/Tiendas", flush=True)
+    nones = 0
+    for index, store in enumerate(stores):
+        if index:
+            if seconds_to_deadline() <= PAUSE + 120: break
+            time.sleep(PAUSE)
+        if seconds_to_deadline() <= 120: break
+        result = read_domain(store["dominio"], include_count_text=True)
+        value = result.get("_reported_value")
+        state = "OK" if result["status"] == "ready" else result["error_code"]
+        now = datetime.datetime.now(LIMA)
+        record = [now.date().isoformat(), store["tienda"], store["dominio"], value if value is not None else "NONE", state]
+        append_history(history_id, [record])
+        print(record, flush=True)
+        if value is not None and (record[0], store["dominio"]) not in existing:
+            append_ingesta(BASE_ID, tab, record[0], store["dominio"], store["tienda"], value, now.isoformat(timespec="seconds"), count_text=result.get("_count_text"))
+            existing.add((record[0], store["dominio"]))
+        if state in {"LOGIN_REQUIRED", "BLOCKED"}:
+            print("Meta requiere login o bloqueo; fin sin reintentos.", flush=True)
+            return 2
+        if value is None: nones += 1
+    return 3 if nones > max_none else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(run())

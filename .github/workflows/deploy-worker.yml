@@ -1,0 +1,66 @@
+name: Deploy signed Meta worker (manual, credits verified)
+on:
+  workflow_dispatch:
+    inputs:
+      credits_verified:
+        description: "Confirmar que se verificaron creditos y presupuesto de mauricio-ai-hub"
+        type: boolean
+        required: true
+        default: false
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: mini-sniper-meta-worker-deploy
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PROJECT_ID: mauricio-ai-hub
+      REGION: ${{ vars.MINI_SNIPER_ADS_REGION || 'us-central1' }}
+      REPOSITORY: ${{ vars.MINI_SNIPER_ADS_ARTIFACT_REPOSITORY }}
+      RUNTIME_SERVICE_ACCOUNT: ${{ vars.MINI_SNIPER_ADS_RUNTIME_SERVICE_ACCOUNT }}
+      HMAC_SECRET_NAME: ${{ vars.MINI_SNIPER_ADS_HMAC_SECRET_NAME }}
+      CREDITS_VERIFIED: ${{ vars.MINI_SNIPER_GCP_CREDITS_VERIFIED }}
+      CONFIRMED: ${{ inputs.credits_verified }}
+    steps:
+      - name: Require verified credits and preconfigured infrastructure
+        shell: bash
+        run: |
+          test "$CONFIRMED" = true && test "$CREDITS_VERIFIED" = true || { echo 'Creditos no verificados: despliegue deshabilitado.'; exit 1; }
+          test -n "$REPOSITORY" && test -n "$RUNTIME_SERVICE_ACCOUNT" && test -n "$HMAC_SECRET_NAME" || { echo 'Faltan variables de infraestructura preconfigurada.'; exit 1; }
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Test
+        run: |
+          pip install --require-hashes -r requirements-worker.lock
+          pip install -r requirements.txt pytest
+          python -m pytest -q
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/277394231713/locations/global/workloadIdentityPools/github-meta-ads/providers/github-actions
+          service_account: meta-ads-robot@mauricio-ai-hub.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Build and push Chromium image
+        shell: bash
+        run: |
+          image="$REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/meta-ads-worker:$GITHUB_SHA"
+          gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
+          docker build --platform linux/amd64 --tag "$image" .
+          docker push "$image"
+      - name: Deploy request-billed worker
+        shell: bash
+        run: |
+          image="$REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/meta-ads-worker:$GITHUB_SHA"
+          gcloud run deploy mini-sniper-meta-ads \
+            --project="$PROJECT_ID" --region="$REGION" --image="$image" \
+            --service-account="$RUNTIME_SERVICE_ACCOUNT" \
+            --min=0 --max=1 --min-instances=0 --max-instances=1 \
+            --concurrency=1 --cpu=1 --memory=1Gi --timeout=120 \
+            --cpu-throttling --no-cpu-boost --allow-unauthenticated \
+            --set-secrets="MINI_SNIPER_ADS_WORKER_SECRET=$HMAC_SECRET_NAME:latest" \
+            --quiet

@@ -1,0 +1,38 @@
+name: Meta domain total on demand
+on:
+  workflow_dispatch:
+    inputs:
+      work_id:
+        description: Private work UUID to claim
+        required: true
+        type: string
+      domain:
+        description: Normalized ASCII domain
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  read:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-worker.lock
+      - name: Install pinned reader only
+        run: pip install --require-hashes -r requirements-worker.lock
+      - name: Check preinstalled Chrome
+        run: test -x /opt/google/chrome/chrome
+      - name: Claim, read and complete private work
+        env:
+          INPUT_WORK_ID: ${{ inputs.work_id }}
+          INPUT_DOMAIN: ${{ inputs.domain }}
+          MINI_SNIPER_ADS_EXECUTOR_DATABASE_URL: ${{ secrets.MINI_SNIPER_ADS_EXECUTOR_DATABASE_URL }}
+          PLAYWRIGHT_CHROMIUM_CHANNEL: chrome
+        run: python demand_runner.py

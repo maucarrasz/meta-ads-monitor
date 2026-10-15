@@ -1,0 +1,7 @@
+*
+!Dockerfile
+!requirements-worker.txt
+!requirements-worker.lock
+!ads_worker.py
+!read_domain.py
+!scraper.py
