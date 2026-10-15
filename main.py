@@ -59,7 +59,6 @@ def run_stores():
     today = datetime.datetime.now(LIMA).date().isoformat()
     stores = [store for store in stores if (today, store["dominio"]) not in existing]
     followup = read_seguimiento(history_id, today) if shard in {"all", "0"} else []
-    followup_domains = {store["dominio"] for store in followup}
     domains = {store["dominio"] for store in stores}
     stores += [store for store in followup if store["dominio"] not in domains]
     if os.environ.get("SOLO_LISTA"):
@@ -79,7 +78,7 @@ def run_stores():
         record = [now.date().isoformat(), store["tienda"], store["dominio"], value if value is not None else "NONE", state]
         append_history(history_id, [record])
         print(record, flush=True)
-        if (value is not None and store["dominio"] not in followup_domains
+        if (value is not None and store["dominio"] in domains
                 and store["dominio"] not in NO_INGESTA and (record[0], store["dominio"]) not in existing):
             append_ingesta(BASE_ID, tab, record[0], store["dominio"], store["tienda"], value, now.isoformat(timespec="seconds"), count_text=result.get("_count_text"))
             existing.add((record[0], store["dominio"]))
