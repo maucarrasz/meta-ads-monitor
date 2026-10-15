@@ -1,9 +1,9 @@
 # Corrida diaria: lee tiendas activo=SI en el orden de la hoja (USA/EU, LATAM, Peru), 240 s entre tiendas.
 # Guarda cada resultado apenas lo lee. Sale con error (-> email de GitHub) si Facebook pide login o hay muchos NONE.
-# Reparto fijo en 4 robots (SHARD 0-3): el robot k lee las tiendas de la lista con posicion % 4 == k. SHARD=all lee todas.
+# Lista de tiendas: pestana Tiendas de la Base unica (sheets.read_stores). Reparto fijo en 4 robots (SHARD 0-3): el robot k lee las tiendas de la lista con posicion % 4 == k. SHARD=all lee todas.
 import os, sys, time, datetime
 from scraper import read_count
-from sheets import read_stores, append_history, ingesta_existing, append_ingesta
+from sheets import read_stores, read_seguimiento, append_history, ingesta_existing, append_ingesta
 
 SHEET_ID = os.environ["SHEET_ID"]
 LIMIT = int(os.environ.get("MAX_STORES", "500"))
@@ -24,9 +24,15 @@ except Exception as e:
 stores = read_stores(SHEET_ID, LIMIT)
 if SHARD != "all":
     stores = [s for j, s in enumerate(stores) if j % NSHARDS == int(SHARD)]
-# Tiendas eliminadas por Mauricio (15 oct): se quitan DESPUES de repartir, para no mover el reparto de los otros robots del dia.
-EXCLUIR = {"bigan.com.ar", "devocione.com"}
-stores = [s for s in stores if s["dominio"] not in EXCLUIR]
+# Reanudable: se saltan las tiendas que ya tienen fila de hoy en Ingesta (evita lecturas y filas duplicadas si el run se repite).
+_hoy = datetime.datetime.now(LIMA).date().isoformat()
+stores = [s for s in stores if (_hoy, s["dominio"]) not in ya]
+# Seguimiento propio de ads (p. ej. 7 dias): se agrega al final del robot 0 (o de "all"), solo historial, nunca Ingesta.
+SEG = read_seguimiento(SHEET_ID, datetime.datetime.now(LIMA).date().isoformat()) if SHARD in ("all", "0") else []
+SEG_DOMS = {x["dominio"] for x in SEG}
+stores = stores + [x for x in SEG if x["dominio"] not in {s["dominio"] for s in stores}]
+if os.environ.get("SOLO_LISTA"):
+    print("SOLO_LISTA", len(stores), [x["dominio"] for x in stores], flush=True); sys.exit(0)
 print(f"Robot {SHARD}: {len(stores)} tiendas:", [s["dominio"] for s in stores], flush=True)
 nones, login = 0, False
 for i, s in enumerate(stores):
@@ -35,7 +41,7 @@ for i, s in enumerate(stores):
     rec = [datetime.datetime.now(LIMA).date().isoformat(), s["tienda"], s["dominio"], res, est]
     print(rec, flush=True)
     append_history(SHEET_ID, [rec])
-    if isinstance(res, int) and s["dominio"] not in NO_INGESTA and (rec[0], s["dominio"]) not in ya:
+    if isinstance(res, int) and s["dominio"] not in NO_INGESTA and s["dominio"] not in SEG_DOMS and (rec[0], s["dominio"]) not in ya:
         try:
             append_ingesta(BASE_ID, ING_TAB, rec[0], s["dominio"], s["tienda"], res, datetime.datetime.now(LIMA).isoformat(timespec="seconds"))
         except Exception as e:
