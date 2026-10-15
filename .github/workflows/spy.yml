@@ -1,0 +1,31 @@
+name: spy
+on:
+  schedule:
+    - cron: "0 20 * * *"   # 15:00 hora Peru, despues de los robots de Mini Sniper
+  workflow_dispatch:
+    inputs:
+      solo_lista:
+        description: "1 = solo imprimir que se leeria (sin Facebook)"
+        default: ""
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/277394231713/locations/global/workloadIdentityPools/github-meta-ads/providers/github-actions
+          service_account: meta-ads-robot@mauricio-ai-hub.iam.gserviceaccount.com
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install playwright google-api-python-client google-auth
+      - run: python -m playwright install --with-deps chromium
+      - run: python spy.py
+        env:
+          SPY_SHEETS: "ECOM:1SoJZ7DUGCrNlwQ4DBuNAjnLnmE-eXfPpycbC-Gzsezc"
+          SOLO_LISTA: ${{ github.event.inputs.solo_lista }}
+
