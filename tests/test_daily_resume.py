@@ -1,6 +1,8 @@
 import datetime
 from pathlib import Path
 
+import pytest
+
 import main
 import sheets
 
@@ -47,6 +49,25 @@ def test_personal_followup_remains_history_only(monkeypatch):
     assert main.run_stores() == 0
     assert len(history) == 1
     assert ingesta == []
+
+
+@pytest.mark.parametrize('domain,expected_ingesta', [
+    ('active.com', ['active.com']),
+    ('info.doutornature.com', []),
+])
+def test_active_store_in_personal_followup_keeps_its_ingesta_policy(monkeypatch, domain, expected_ingesta):
+    setup(monkeypatch)
+    monkeypatch.setattr(main, 'read_base_stores', lambda *_: [{'dominio': domain, 'tienda': 'Active'}])
+    monkeypatch.setattr(main, 'read_seguimiento', lambda *_: [{'dominio': domain, 'tienda': 'Personal'}])
+    monkeypatch.setattr(main, 'ingesta_existing', lambda *_: set())
+    reads, history, ingesta = [], [], []
+    monkeypatch.setattr(main, 'read_domain', lambda domain, **kw: reads.append(domain) or {'status': 'ready', '_reported_value': 3, '_count_text': '3 results'})
+    monkeypatch.setattr(main, 'append_history', lambda _, records: history.extend(records))
+    monkeypatch.setattr(main, 'append_ingesta', lambda *args, **kw: ingesta.append(args[3]))
+    assert main.run_stores() == 0
+    assert reads == [domain]
+    assert history == [['2026-10-16', 'Active', domain, 3, 'OK']]
+    assert ingesta == expected_ingesta
 
 
 def test_solo_lista_never_opens_chrome_or_appends_history(monkeypatch, capsys):
