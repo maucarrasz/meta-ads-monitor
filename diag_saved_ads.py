@@ -22,6 +22,14 @@ with sync_playwright() as pw:
             txt = pg.inner_text("body", timeout=15000)
             snaps.append((t, pg.url, txt))
         pg.screenshot(path=f"{OUT}/{i}.png")
+        from urllib.parse import unquote
+        hs = pg.eval_on_selector_all("a[href]", "els=>els.map(e=>e.href)")
+        found = {}
+        for h in hs:
+            u = unquote(h)
+            for m in re.finditer(r"([a-z0-9.-]+)/products/([A-Za-z0-9_-]+)", u):
+                k = m.group(1)+"/products/"+m.group(2); found[k] = found.get(k, 0)+1
+        print("HANDLES", sorted(found.items(), key=lambda x:-x[1])[:15])
         final = snaps[-1]
         print("=== ", ph)
         print("FINAL_URL", pg.url[:300])
