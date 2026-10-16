@@ -6,6 +6,7 @@ from scraper import read_count
 from sheets import _svc
 
 PAUSE = 240
+SHARED = {"quiz.fitme.expert"}  # plataformas compartidas: el conteo por dominio mezcla anunciantes; se lee por pagina
 MAX_NONE = int(os.environ.get("MAX_NONE", "3"))
 LIMA = datetime.timezone(datetime.timedelta(hours=-5))
 # SPY_SHEETS = "ECOM:<id>,APPS:<id>,INFOPRODUCTOS:<id>"
@@ -35,10 +36,10 @@ def activo(estado, hoy):
 
 def read_list(name, sid, hoy):
     c = COLS[name]
-    rows = _svc().values().get(spreadsheetId=sid, range="Anunciantes!A2:T").execute().get("values", [])
+    rows = _svc().values().get(spreadsheetId=sid, range="Anunciantes!A2:U").execute().get("values", [])
     out, seen = [], set()
     for r in rows:
-        r = r + [""] * (20 - len(r))
+        r = r + [""] * (21 - len(r))
         d = norm(r[c[1]])
         urls = r[18].split() if name != "ECOM" else []
         if not d and urls:
@@ -46,7 +47,7 @@ def read_list(name, sid, hoy):
             if m: d = "pagina:" + m.group(1)
         if not d or d in seen or not activo(r[c[6]], hoy): continue
         seen.add(d)
-        out.append({"store_id": r[c[0]], "dominio": d, "anunciante": r[c[2]], "link": r[c[3]] if c[3] is not None else "", "region": r[c[4]], "pais": r[c[5]], "anunc_url": urls, "destino": r[19].strip()})
+        out.append({"store_id": r[c[0]], "dominio": d, "anunciante": r[c[2]], "link": r[c[3]] if c[3] is not None else "", "region": r[c[4]], "pais": r[c[5]], "anunc_url": urls, "destino": r[19].strip(), "compartido": (r[20].strip().upper() == "SI" or d in SHARED) and bool(urls)})
     return out
 
 def ya_leidos(sid, hoy):
@@ -89,7 +90,7 @@ nones, login = 0, False
 HIST = {sid: hist_ceros(sid) for _, sid in SHEETS}
 for i, (name, sid, s) in enumerate(plan):
     if i: time.sleep(PAUSE)
-    solo_pagina = s["dominio"].startswith("pagina:")
+    solo_pagina = s["dominio"].startswith("pagina:") or s["compartido"]
     if solo_pagina:
         res, est = 0, "OK"
     else:
@@ -100,7 +101,7 @@ for i, (name, sid, s) in enumerate(plan):
     if res == 0 and s["anunc_url"]:
         # Solo APPS/INFOPRODUCTOS: dominio dio 0 -> se lee por ANUNCIANTE (pagina) y se usa ese conteo.
         tot, partes, falla = 0, [], False
-        motivo = "solo anunciante" if solo_pagina else "dominio dio 0"
+        motivo = "dominio compartido, no confiable" if s["compartido"] else ("solo anunciante" if solo_pagina else "dominio dio 0")
         for k, u in enumerate(s["anunc_url"]):
             if k or not solo_pagina: time.sleep(PAUSE)
             res2, est2 = read_count(u, use_state=False)
