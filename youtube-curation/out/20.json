@@ -1,0 +1,21 @@
+{
+ "n": "20",
+ "canal": "Eddie Maalouf",
+ "handle": "@EddieMaalouf",
+ "url": "https://www.youtube.com/@EddieMaalouf",
+ "videos": [
+  {
+   "id": "jAGTr6A16MM",
+   "estado": "NO VERIFICABLE: pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies\n"
+  },
+  {
+   "id": "SXo3uCs2-RY",
+   "estado": "NO VERIFICABLE: pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies\n"
+  },
+  {
+   "id": "p2M19vKCk1Y",
+   "estado": "NO VERIFICABLE: pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies\n"
+  }
+ ],
+ "estado": "OK"
+}

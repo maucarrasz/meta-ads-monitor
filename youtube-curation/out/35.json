@@ -1,0 +1,21 @@
+{
+ "n": "35",
+ "canal": "Adam Karcz",
+ "handle": "@aedamk",
+ "url": "https://www.youtube.com/@aedamk",
+ "videos": [
+  {
+   "id": "wCkiB54IjMA",
+   "estado": "NO VERIFICABLE: pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies\n"
+  },
+  {
+   "id": "gVx4Ap8DNXI",
+   "estado": "NO VERIFICABLE: pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies\n"
+  },
+  {
+   "id": "QoXM4ZlqvSs",
+   "estado": "NO VERIFICABLE: pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies\n"
+  }
+ ],
+ "estado": "OK"
+}

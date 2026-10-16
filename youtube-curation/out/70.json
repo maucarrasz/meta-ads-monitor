@@ -1,0 +1,21 @@
+{
+ "n": "70",
+ "canal": "Dan Koe",
+ "handle": "@DanKoeTalks",
+ "url": "https://www.youtube.com/@DanKoeTalks",
+ "videos": [
+  {
+   "id": "wdA5y0k7CRA",
+   "estado": "NO VERIFICABLE: pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies\n"
+  },
+  {
+   "id": "pmQhqVLVApw",
+   "estado": "NO VERIFICABLE: pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies\n"
+  },
+  {
+   "id": "DKT6m_8vCkA",
+   "estado": "NO VERIFICABLE: pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies\n"
+  }
+ ],
+ "estado": "OK"
+}

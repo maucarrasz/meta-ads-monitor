@@ -1,0 +1,21 @@
+{
+ "n": "15",
+ "canal": "Federico Cristofari",
+ "handle": "@federicocristofari",
+ "url": "https://www.youtube.com/@federicocristofari",
+ "videos": [
+  {
+   "id": "VfghO763wrc",
+   "estado": "NO VERIFICABLE: pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies\n"
+  },
+  {
+   "id": "FqvNmFm_d-k",
+   "estado": "NO VERIFICABLE: pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies\n"
+  },
+  {
+   "id": "uhW49yML6G8",
+   "estado": "NO VERIFICABLE: pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies\n"
+  }
+ ],
+ "estado": "OK"
+}

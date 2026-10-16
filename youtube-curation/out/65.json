@@ -1,0 +1,21 @@
+{
+ "n": "65",
+ "canal": "kold",
+ "handle": "@koldstudios",
+ "url": "https://www.youtube.com/@koldstudios",
+ "videos": [
+  {
+   "id": "kTWoeqPXpuo",
+   "estado": "NO VERIFICABLE: pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies\n"
+  },
+  {
+   "id": "12o3Zgupu_8",
+   "estado": "NO VERIFICABLE: pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies\n"
+  },
+  {
+   "id": "TYV3VlhWPAw",
+   "estado": "NO VERIFICABLE: pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies\n"
+  }
+ ],
+ "estado": "OK"
+}
