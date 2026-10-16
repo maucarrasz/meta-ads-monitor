@@ -10,7 +10,7 @@ import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 
-SHEET_ID = '1UBROl8RFaezkHcwmMzIygpaxIAA3k2x0zPQcpw56Ohw'
+SHEET_ID = os.environ['CHANNELS_SHEET_ID']
 TABS = ('ECOM', 'AI APPS', 'Marca Personal')
 STATE = 'BASE_CANALES_WIF'
 HEADER = ['tipo', 'categoria', 'canal_url', 'channel_id', 'video_id', 'titulo', 'publicado', 'video_url', 'detectado', 'estado', 'detalle']

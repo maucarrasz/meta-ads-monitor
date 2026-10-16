@@ -27,4 +27,6 @@ jobs:
           python-version: '3.12'
       - run: pip install google-api-python-client google-auth
       - name: Read private channel list and keep private detection state in Sheets
+        env:
+          CHANNELS_SHEET_ID: ${{ vars.CHANNELS_SHEET_ID }}
         run: python channels/channels_wif.py
