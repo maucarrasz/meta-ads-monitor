@@ -40,6 +40,9 @@ def product_observation(phrase,text,current_url):
         match=RESULT_TOTAL.search(text)
         if match:
             count=int(match.group(2).replace(',',''));failure=None
+        if count is None and 'no ads match your search criteria' in low and 'active status' in low:
+            # Meta's own empty-state banner for this exact scoped URL (header intact, no login/block) = 0 active ads.
+            count=0;failure=None
         if count is None:
             for line in text.splitlines():
                 match=re.fullmatch(r'\s*(?:(?:about|approximately)\s+)?~?\s*(\d{1,3}(?:,\d{3})+|\d+)\s+(?:results?|resultados?|anuncios?)\s*',line,re.I)

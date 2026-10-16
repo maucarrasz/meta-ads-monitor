@@ -76,3 +76,13 @@ def test_meta_total_can_be_split_across_header_lines():
     assert result['status']=='ready' and result['value']==1400
     assert product_observation(phrase,'0\nresults\nFilters',url)['value']==0
     assert product_observation(phrase,'No results',url)['value'] is None
+
+
+def test_meta_empty_state_banner_is_zero_only_in_exact_scope_without_login():
+    phrase='example.com/products/widget';url=product_ads_url(phrase)
+    page='Filters\nActive status: Active ads\nNo ads match your search criteria\nRemove or adjust any filters'
+    r=product_observation(phrase,page,url)
+    assert r['value']==0 and r['status']=='ready' and r['error_code'] is None
+    assert product_observation(phrase,page,'https://www.facebook.com/ads/library/?q=other')['value'] is None
+    assert product_observation(phrase,'Log in to continue\n'+page,url)['error_code']=='LOGIN_REQUIRED'
+    assert product_observation(phrase,'No ads match your search criteria',url)['value'] is None
