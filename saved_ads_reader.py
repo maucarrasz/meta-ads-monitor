@@ -5,7 +5,7 @@ import os
 import re
 from urllib.parse import urlencode, urlparse, parse_qs
 from ads_worker import valid_domain
-from scraper import LOGIN_MARKERS
+from scraper import LOGIN_MARKERS, RESULT_TOTAL
 
 
 def product_ads_url(phrase):
@@ -36,10 +36,15 @@ def product_observation(phrase,text,current_url):
         failure='NO_VERIFIABLE_COUNT'
     else:
         # Only a real total label counts. An empty-state message cannot manufacture zero.
-        for line in text.splitlines():
-            match=re.fullmatch(r'\s*(?:(?:about|approximately)\s+)?~?\s*(\d{1,3}(?:,\d{3})+|\d+)\s+(?:results?|resultados?|anuncios?)\s*',line,re.I)
-            if match:
-                count=int(match.group(1).replace(',',''));failure=None;break
+        # Reuse the store reader's pattern: Meta can separate the number and label.
+        match=RESULT_TOTAL.search(text)
+        if match:
+            count=int(match.group(2).replace(',',''));failure=None
+        if count is None:
+            for line in text.splitlines():
+                match=re.fullmatch(r'\s*(?:(?:about|approximately)\s+)?~?\s*(\d{1,3}(?:,\d{3})+|\d+)\s+(?:results?|resultados?|anuncios?)\s*',line,re.I)
+                if match:
+                    count=int(match.group(1).replace(',',''));failure=None;break
     return dict(status='ready' if count is not None else 'error',value=count,
                 observed_at=datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds'),
                 source='META_AD_LIBRARY',method='meta_product_url_total_v1',
