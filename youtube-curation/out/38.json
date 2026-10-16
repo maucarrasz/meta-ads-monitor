@@ -1,0 +1,21 @@
+{
+ "n": "38",
+ "canal": "Davie Fogarty",
+ "handle": "@DavieFogarty",
+ "url": "https://www.youtube.com/@DavieFogarty",
+ "videos": [
+  {
+   "id": "vo6aDcnPzCU",
+   "estado": "NO VERIFICABLE: pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies\n"
+  },
+  {
+   "id": "GlxMoZMyhrs",
+   "estado": "NO VERIFICABLE: pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies\n"
+  },
+  {
+   "id": "Edr2LTIaNFQ",
+   "estado": "NO VERIFICABLE: pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies\n"
+  }
+ ],
+ "estado": "OK"
+}
