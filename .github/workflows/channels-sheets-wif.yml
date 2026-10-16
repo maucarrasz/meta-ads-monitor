@@ -1,0 +1,30 @@
+name: Channels Sheets WIF reader and detector
+on:
+  schedule:
+    - cron: '2 12 * * *'
+  workflow_dispatch: {}
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: channels-sheets-wif
+  cancel-in-progress: false
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: google-github-actions/auth@v2
+        with:
+          project_id: mauricio-ai-hub
+          workload_identity_provider: projects/277394231713/locations/global/workloadIdentityPools/github-meta-ads/providers/github-actions
+          service_account: meta-ads-robot@mauricio-ai-hub.iam.gserviceaccount.com
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install google-api-python-client google-auth
+      - name: Read private channel list and keep private detection state in Sheets
+        run: python channels/channels_wif.py
