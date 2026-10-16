@@ -1,0 +1,39 @@
+name: funnel
+on:
+  schedule:
+    - cron: "40 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      forzar:
+        description: "1 = repetir filas ya capturadas"
+        default: ""
+permissions:
+  contents: write
+  id-token: write
+concurrency:
+  group: funnel
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/277394231713/locations/global/workloadIdentityPools/github-meta-ads/providers/github-actions
+          service_account: meta-ads-robot@mauricio-ai-hub.iam.gserviceaccount.com
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install google-api-python-client google-auth
+      - id: chk
+        run: python funnel.py --check
+        env: { FORZAR: "${{ github.event.inputs.forzar }}" }
+      - if: steps.chk.outputs.pending == 'true'
+        run: pip install playwright && python -m playwright install --with-deps chromium
+      - if: steps.chk.outputs.pending == 'true'
+        run: python funnel.py
+        env: { FORZAR: "${{ github.event.inputs.forzar }}" }
+      - if: steps.chk.outputs.pending == 'true'
+        run: |
+          git config user.name funnel-bot; git config user.email funnel-bot@users.noreply.github.com
+          git add funnels && (git commit -m "funnel capturas" && git pull --rebase && git push) || true
