@@ -49,6 +49,26 @@ def ya_leidos(sid, hoy):
     rows = _svc().values().get(spreadsheetId=sid, range="Lecturas_Ads!A:B").execute().get("values", [])
     return {r[1] for r in rows if len(r) > 1 and r[0] == hoy}
 
+
+def hist_ceros(sid):
+    """{dominio: {fecha: total}} usando solo lecturas por dominio."""
+    rows = _svc().values().get(spreadsheetId=sid, range="Lecturas_Ads!A:H").execute().get("values", [])
+    h = {}
+    for r in rows[1:]:
+        if len(r) > 7 and r[7] == "dominio" and r[6].strip().lstrip("-").isdigit():
+            h.setdefault(r[1], {})[r[0]] = int(r[6])
+    return h
+
+def nota_ceros(hist, dom, hoy, res):
+    if res != 0: return "Cron spy personal"
+    d = datetime.date.fromisoformat(hoy); n = 1
+    while True:
+        d -= datetime.timedelta(days=1)
+        if hist.get(dom, {}).get(d.isoformat()) == 0: n += 1
+        else: break
+    if n >= 5: return f"Cron spy personal | APAGADO confirmado ({n} dias seguidos sin anuncios)"
+    return f"Cron spy personal | sin anuncios hoy (dia {n} de 5)"
+
 hoy = datetime.datetime.now(LIMA).date().isoformat()
 plan = []
 for name, sid in SHEETS:
@@ -62,6 +82,7 @@ if not plan: print("Nada pendiente hoy."); sys.exit(0)
 print("Se leen:", [p[2]["dominio"] for p in plan], flush=True)
 if os.environ.get("SOLO_LISTA"): sys.exit(0)
 nones, login = 0, False
+HIST = {sid: hist_ceros(sid) for _, sid in SHEETS}
 for i, (name, sid, s) in enumerate(plan):
     if i: time.sleep(PAUSE)
     res, est = read_count(ads_url(s["dominio"]), use_state=False)
@@ -69,7 +90,7 @@ for i, (name, sid, s) in enumerate(plan):
     if est == "LOGIN_REQUIRED": login = True; break
     if isinstance(res, int):
         row = [hoy, s["dominio"], s["anunciante"], s["link"], s["region"], s["pais"], res, "dominio", ads_url(s["dominio"]),
-               "Cron spy personal", s["store_id"], f"{s['store_id']}|dominio"]
+               nota_ceros(HIST[sid], s["dominio"], hoy, res), s["store_id"], f"{s['store_id']}|dominio"]
         _svc().values().append(spreadsheetId=sid, range="Lecturas_Ads!A:L", valueInputOption="USER_ENTERED", body={"values": [row]}).execute()
     else:
         nones += 1
