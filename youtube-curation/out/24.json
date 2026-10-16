@@ -1,0 +1,22 @@
+{
+ "n": "24",
+ "canal": "Shopioso",
+ "handle": "@shopioso",
+ "url": "https://www.youtube.com/@shopioso",
+ "videos": [
+  {
+   "id": "iG7p5w6BxaI",
+   "estado": "NO VERIFICABLE: pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies\n"
+  },
+  {
+   "id": "VhHS2Km3iFw",
+   "estado": "NO VERIFICABLE: pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies\n"
+  },
+  {
+   "id": "IOrYCB70r6c",
+   "estado": "NO VERIFICABLE: pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies\n"
+  }
+ ],
+ "estado": "OK",
+ "rate_limit_429": true
+}
