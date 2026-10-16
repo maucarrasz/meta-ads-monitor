@@ -1,7 +1,9 @@
 name: daily
 on:
   schedule:
-    - cron: "30 12 * * *"   # 07:30 Lima: un run all reanudable, fin duro 12:00
+    - cron: "31 12 * * *"   # 07:31 Lima
+    - cron: "47 13 * * *"   # respaldo 08:47 Lima (reanudable: salta tiendas con fila de hoy)
+    - cron: "13 15 * * *"   # respaldo 10:13 Lima
   workflow_dispatch:
     inputs:
       shard:
