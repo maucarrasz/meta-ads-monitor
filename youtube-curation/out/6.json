@@ -1,0 +1,21 @@
+{
+ "n": "6",
+ "canal": "Iman Gadzhi",
+ "handle": "@ImanGadzhi",
+ "url": "https://www.youtube.com/@ImanGadzhi",
+ "videos": [
+  {
+   "id": "wtDDjBOfTZo",
+   "estado": "NO VERIFICABLE: pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies\n"
+  },
+  {
+   "id": "_67MWD7XW9Q",
+   "estado": "NO VERIFICABLE: pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies\n"
+  },
+  {
+   "id": "DZoeGR_tatA",
+   "estado": "NO VERIFICABLE: pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies\n"
+  }
+ ],
+ "estado": "OK"
+}

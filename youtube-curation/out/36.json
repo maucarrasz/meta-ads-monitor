@@ -1,0 +1,21 @@
+{
+ "n": "36",
+ "canal": "Zedan Mutlu",
+ "handle": "@ZedanMutlu-71011",
+ "url": "https://www.youtube.com/@ZedanMutlu-71011",
+ "videos": [
+  {
+   "id": "sMzBEMXbtuo",
+   "estado": "NO VERIFICABLE: pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies\n"
+  },
+  {
+   "id": "PMGSX8oRTss",
+   "estado": "NO VERIFICABLE: pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies\n"
+  },
+  {
+   "id": "YQbfOXIlKmA",
+   "estado": "NO VERIFICABLE: pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies\n"
+  }
+ ],
+ "estado": "OK"
+}
