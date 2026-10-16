@@ -13,7 +13,8 @@ with sync_playwright() as pw:
     pg = b.new_context(locale="en-US", viewport={"width":1280,"height":900}).new_page()
     for i, ph in enumerate(phrases):
         if i: time.sleep(240)
-        url = product_ads_url(ph)
+        from urllib.parse import urlencode
+        url = product_ads_url(ph) if "/products/" in ph else "https://www.facebook.com/ads/library/?"+urlencode(dict(active_status="active",ad_type="all",country="ALL",q='"'+ph+'"',search_type="keyword_exact_phrase"))
         pg.goto(url, wait_until="domcontentloaded", timeout=60000)
         snaps = []
         for t in (6000, 8000, 12000):
@@ -27,7 +28,10 @@ with sync_playwright() as pw:
         for t, u, tx in snaps:
             ls = [l.strip() for l in tx.splitlines() if re.search(r"result|resultado|anuncio|ads|no ads|match", l, re.I)][:8]
             print("T+", t, "len", len(tx), "lines:", ls)
-        print("OBS", {k: v for k, v in product_observation(ph, final[2], pg.url).items() if k in ("status","value","error_code")})
+        try: print("OBS", {k: v for k, v in product_observation(ph, final[2], pg.url).items() if k in ("status","value","error_code")})
+        except Exception as e: print("OBS n/a", e)
+        from scraper import RESULT_TOTAL
+        m = RESULT_TOTAL.search(final[2]); print("TOTAL", m.group(0) if m else None)
         print("HEAD", final[2][:500].replace("\n", " | "))
         open(f"{OUT}/{i}.txt","w").write(final[1]+"\n"+final[2][:3000])
     b.close()
