@@ -1,0 +1,13 @@
+{
+ "n": "12",
+ "canal": "ReStructure AI",
+ "handle": "@restructureai",
+ "url": "https://www.youtube.com/@restructureai",
+ "videos": [
+  {
+   "id": "Kddyrnh8gso",
+   "estado": "NO VERIFICABLE: pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies\n"
+  }
+ ],
+ "estado": "OK"
+}

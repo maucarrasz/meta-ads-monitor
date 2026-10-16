@@ -1,0 +1,21 @@
+{
+ "n": "17",
+ "canal": "Ali Akbar | White-Label Ecommerce",
+ "handle": "@daily-ecommerce",
+ "url": "https://www.youtube.com/@daily-ecommerce",
+ "videos": [
+  {
+   "id": "32CRwhHqou4",
+   "estado": "NO VERIFICABLE: pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies\n"
+  },
+  {
+   "id": "z06laDSzT9M",
+   "estado": "NO VERIFICABLE: pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies\n"
+  },
+  {
+   "id": "reFwcjsOYiU",
+   "estado": "NO VERIFICABLE: pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies\n"
+  }
+ ],
+ "estado": "OK"
+}

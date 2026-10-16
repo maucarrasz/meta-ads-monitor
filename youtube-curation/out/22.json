@@ -1,0 +1,21 @@
+{
+ "n": "22",
+ "canal": "Racks University",
+ "handle": "@RacksUniverstiy",
+ "url": "https://www.youtube.com/@RacksUniverstiy",
+ "videos": [
+  {
+   "id": "mvoe8Q2FPXE",
+   "estado": "NO VERIFICABLE: pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies\n"
+  },
+  {
+   "id": "6Xcfh9URtpM",
+   "estado": "NO VERIFICABLE: pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies\n"
+  },
+  {
+   "id": "rQe7i3iBMsk",
+   "estado": "NO VERIFICABLE: pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies\n"
+  }
+ ],
+ "estado": "OK"
+}
