@@ -35,14 +35,14 @@ def activo(estado, hoy):
 
 def read_list(name, sid, hoy):
     c = COLS[name]
-    rows = _svc().values().get(spreadsheetId=sid, range="Anunciantes!A2:O").execute().get("values", [])
+    rows = _svc().values().get(spreadsheetId=sid, range="Anunciantes!A2:S").execute().get("values", [])
     out, seen = [], set()
     for r in rows:
-        r = r + [""] * (15 - len(r))
+        r = r + [""] * (19 - len(r))
         d = norm(r[c[1]])
         if not d or d in seen or not activo(r[c[6]], hoy): continue
         seen.add(d)
-        out.append({"store_id": r[c[0]], "dominio": d, "anunciante": r[c[2]], "link": r[c[3]] if c[3] is not None else "", "region": r[c[4]], "pais": r[c[5]]})
+        out.append({"store_id": r[c[0]], "dominio": d, "anunciante": r[c[2]], "link": r[c[3]] if c[3] is not None else "", "region": r[c[4]], "pais": r[c[5]], "anunc_url": r[18].strip() if name != "ECOM" else ""})
     return out
 
 def ya_leidos(sid, hoy):
@@ -55,7 +55,7 @@ def hist_ceros(sid):
     rows = _svc().values().get(spreadsheetId=sid, range="Lecturas_Ads!A:H").execute().get("values", [])
     h = {}
     for r in rows[1:]:
-        if len(r) > 7 and r[7] == "dominio" and r[6].strip().lstrip("-").isdigit():
+        if len(r) > 7 and r[7] in ("dominio", "anunciante") and r[6].strip().lstrip("-").isdigit():
             h.setdefault(r[1], {})[r[0]] = int(r[6])
     return h
 
@@ -88,9 +88,20 @@ for i, (name, sid, s) in enumerate(plan):
     res, est = read_count(ads_url(s["dominio"]), use_state=False)
     print([hoy, name, s["dominio"], res, est], flush=True)
     if est == "LOGIN_REQUIRED": login = True; break
+    metodo, fuente, extra = "dominio", ads_url(s["dominio"]), ""
+    if res == 0 and s.get("anunc_url"):
+        # Solo APPS/INFOPRODUCTOS: dominio dio 0 -> se lee por ANUNCIANTE (pagina) y se usa ese conteo.
+        time.sleep(PAUSE)
+        res2, est2 = read_count(s["anunc_url"], use_state=False)
+        print([hoy, name, s["dominio"], "anunciante", res2, est2], flush=True)
+        if est2 == "LOGIN_REQUIRED": login = True; break
+        if isinstance(res2, int):
+            res, metodo, fuente, extra = res2, "anunciante", s["anunc_url"], " | metodo anunciante (dominio dio 0)"
+        else:
+            nones += 1; continue
     if isinstance(res, int):
-        row = [hoy, s["dominio"], s["anunciante"], s["link"], s["region"], s["pais"], res, "dominio", ads_url(s["dominio"]),
-               nota_ceros(HIST[sid], s["dominio"], hoy, res), s["store_id"], f"{s['store_id']}|dominio"]
+        row = [hoy, s["dominio"], s["anunciante"], s["link"], s["region"], s["pais"], res, metodo, fuente,
+               nota_ceros(HIST[sid], s["dominio"], hoy, res) + extra, s["store_id"], f"{s['store_id']}|dominio"]
         _svc().values().append(spreadsheetId=sid, range="Lecturas_Ads!A:L", valueInputOption="USER_ENTERED", body={"values": [row]}).execute()
     else:
         nones += 1
