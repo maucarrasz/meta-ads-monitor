@@ -117,8 +117,19 @@ def drive_up(p, outdir, files):
             err = str(e)[:120]; break
     return ok, err
 
+def diag_needed():
+    import hashlib
+    if not os.path.exists("diag_request.txt"): return False
+    h = hashlib.sha1(open("diag_request.txt").read().strip().encode()).hexdigest()[:8]
+    return not os.path.isdir(f"funnels/diag/{h}")
+
 if __name__ == "__main__":
     ps = pending()
+    if diag_needed():
+        if "--check" in sys.argv:
+            if os.environ.get("GITHUB_OUTPUT"): open(os.environ["GITHUB_OUTPUT"], "a").write("pending=true\n")
+            sys.exit(0)
+        import runpy; runpy.run_path("diag_saved_ads.py"); sys.exit(0)
     if "--check" in sys.argv:
         print("pending=" + ("true" if ps else "false"))
         if os.environ.get("GITHUB_OUTPUT"): open(os.environ["GITHUB_OUTPUT"], "a").write("pending=" + ("true" if ps else "false") + "\n")
