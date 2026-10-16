@@ -1,0 +1,38 @@
+name: Saved product Ads daily
+on:
+  schedule:
+    - cron: '20 6 * * *'
+  workflow_dispatch:
+    inputs:
+      single_read:
+        description: 'Validate one queued product and stop'
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: saved-product-ads-daily
+  cancel-in-progress: false
+jobs:
+  read:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-worker.lock
+      - name: Install pinned public reader
+        run: pip install --require-hashes -r requirements-worker.lock
+      - name: Check preinstalled Chrome
+        run: test -x /opt/google/chrome/chrome
+      - name: Read saved products slowly
+        env:
+          MINI_SNIPER_ADS_EXECUTOR_DATABASE_URL: ${{ secrets.MINI_SNIPER_ADS_EXECUTOR_DATABASE_URL }}
+          PLAYWRIGHT_CHROMIUM_CHANNEL: chrome
+          SAVED_ADS_SINGLE_READ: ${{ github.event_name == 'workflow_dispatch' && inputs.single_read && '1' || '0' }}
+        run: python saved_ads_runner.py
