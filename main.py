@@ -31,7 +31,12 @@ def run():
         return run_stores()
     remaining = seconds_to_deadline()
     if remaining <= 0:
-        print("Fin: ya son las 12:00 Lima.", flush=True)
+        os.environ["PENDING_ONLY"] = "1"
+        pending = run_stores()
+        if pending:
+            print(f"FALLO: ya son las 12:00 Lima y quedan {pending} tiendas sin leer hoy.", flush=True)
+            return 4
+        print("Fin: ya son las 12:00 Lima y no quedaba nada pendiente.", flush=True)
         return 0
     signal.signal(signal.SIGALRM, _deadline)
     signal.setitimer(signal.ITIMER_REAL, remaining)
@@ -39,6 +44,12 @@ def run():
         return run_stores()
     except DailyDeadline:
         print("Fin duro: 12:00 Lima; historial conservado.", flush=True)
+        os.environ["PENDING_ONLY"] = "1"
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        pending = run_stores()
+        if pending:
+            print(f"FALLO: fin duro 12:00 Lima con {pending} tiendas sin leer hoy.", flush=True)
+            return 4
         return 0
     finally:
         signal.setitimer(signal.ITIMER_REAL, 0)
@@ -52,12 +63,15 @@ def run_stores():
     stores = read_base_stores(BASE_ID, limit)
     existing = ingesta_existing(BASE_ID, tab)
     shard = os.environ.get("SHARD", "all")
-    if shard not in {"all", "0", "1", "2", "3"}:
+    nshards = int(os.environ.get("NSHARDS") or 4)
+    if shard != "all" and not (shard.isdigit() and int(shard) < nshards):
         raise ValueError("INVALID_SHARD")
     if shard != "all":
-        stores = [store for index, store in enumerate(stores) if index % 4 == int(shard)]
+        stores = [store for index, store in enumerate(stores) if index % nshards == int(shard)]
     today = datetime.datetime.now(LIMA).date().isoformat()
     stores = [store for store in stores if (today, store["dominio"]) not in existing]
+    if os.environ.get("PENDING_ONLY"):
+        return len(stores)
     followup = read_seguimiento(history_id, today) if shard in {"all", "0"} else []
     domains = {store["dominio"] for store in stores}
     stores += [store for store in followup if store["dominio"] not in domains]

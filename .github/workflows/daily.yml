@@ -1,9 +1,10 @@
 name: daily
 on:
   schedule:
-    - cron: "31 12 * * *"   # 07:31 Lima
-    - cron: "47 13 * * *"   # respaldo 08:47 Lima (reanudable: salta tiendas con fila de hoy)
-    - cron: "13 15 * * *"   # respaldo 10:13 Lima
+    - cron: "17 8 * * *"    # 03:17 Lima (GitHub retrasa horas: margen)
+    - cron: "43 9 * * *"    # respaldo 04:43 Lima
+    - cron: "23 11 * * *"   # respaldo 06:23 Lima
+    - cron: "13 12 * * *"   # respaldo 07:13 Lima (ultimo con tiempo antes de las 12:00 Lima)
   workflow_dispatch:
     inputs:
       shard:
@@ -12,14 +13,18 @@ on:
       solo_lista:
         description: "1 = solo imprimir la lista de tiendas (sin Facebook)"
         default: ""
-concurrency:
-  group: minisniper-ads   # un solo run de Mini Sniper a la vez
-  cancel-in-progress: false
 permissions:
   contents: read
   id-token: write
 jobs:
   run:
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(github.event.inputs.shard && format('["{0}"]', github.event.inputs.shard) || vars.DAILY_SHARDS_LIST || '["all"]') }}
+    concurrency:
+      group: minisniper-ads-${{ matrix.shard }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 270
     steps:
@@ -37,5 +42,6 @@ jobs:
           SHEET_ID: 1ksNMiSje9A94SdYWDrCGRI-4Obkuqvgqftf3oauYqM0
           MAX_STORES: ${{ vars.MAX_STORES || '500' }}
           INGESTA_TAB: ${{ vars.INGESTA_TAB || 'Ingesta_Diaria' }}
-          SHARD: ${{ github.event.inputs.shard || 'all' }}
+          SHARD: ${{ matrix.shard }}
+          NSHARDS: ${{ vars.DAILY_NSHARDS || '4' }}
           SOLO_LISTA: ${{ github.event.inputs.solo_lista }}
