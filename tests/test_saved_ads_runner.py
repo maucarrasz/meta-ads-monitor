@@ -68,3 +68,11 @@ def test_bounded_validation_read_stops_after_one_persisted_result_without_extra_
         def read(self,phrase):return dict(status='ready',value=0)
     assert run_jobs(rpc_call=rpc,reader=Reader(),sleep=lambda n:events.append('sleep'),max_reads=1)==1
     assert events==['saved_ads_claim','saved_ads_complete']
+
+
+def test_meta_total_can_be_split_across_header_lines():
+    phrase='example.com/products/widget';url=product_ads_url(phrase)
+    result=product_observation(phrase,'Ads Library\nAbout\n~1,400\nresults\nFilters',url)
+    assert result['status']=='ready' and result['value']==1400
+    assert product_observation(phrase,'0\nresults\nFilters',url)['value']==0
+    assert product_observation(phrase,'No results',url)['value'] is None
