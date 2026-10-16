@@ -10,6 +10,9 @@ on:
 permissions:
   contents: read
   id-token: write
+concurrency:
+  group: spy-personal
+  cancel-in-progress: false
 jobs:
   run:
     runs-on: ubuntu-latest
@@ -28,4 +31,5 @@ jobs:
         env:
           SPY_SHEETS: "ECOM:1SoJZ7DUGCrNlwQ4DBuNAjnLnmE-eXfPpycbC-Gzsezc,APPS:17Twaxi9-nWjmP14Bx4HRn0EneDXvNtOALNyRACxwl8k,INFOPRODUCTOS:1xbl6jJ6XZrXi5uWETSaT26BflriZwk_x8r3X3c7gRN8"
           SOLO_LISTA: ${{ github.event.inputs.solo_lista }}
+
 
