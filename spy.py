@@ -40,9 +40,13 @@ def read_list(name, sid, hoy):
     for r in rows:
         r = r + [""] * (20 - len(r))
         d = norm(r[c[1]])
+        urls = r[18].split() if name != "ECOM" else []
+        if not d and urls:
+            m = re.search(r"view_all_page_id=(\d+)", urls[0])
+            if m: d = "pagina:" + m.group(1)
         if not d or d in seen or not activo(r[c[6]], hoy): continue
         seen.add(d)
-        out.append({"store_id": r[c[0]], "dominio": d, "anunciante": r[c[2]], "link": r[c[3]] if c[3] is not None else "", "region": r[c[4]], "pais": r[c[5]], "anunc_url": r[18].split() if name != "ECOM" else [], "destino": r[19].strip()})
+        out.append({"store_id": r[c[0]], "dominio": d, "anunciante": r[c[2]], "link": r[c[3]] if c[3] is not None else "", "region": r[c[4]], "pais": r[c[5]], "anunc_url": urls, "destino": r[19].strip()})
     return out
 
 def ya_leidos(sid, hoy):
@@ -85,15 +89,20 @@ nones, login = 0, False
 HIST = {sid: hist_ceros(sid) for _, sid in SHEETS}
 for i, (name, sid, s) in enumerate(plan):
     if i: time.sleep(PAUSE)
-    res, est = read_count(ads_url(s["dominio"]), use_state=False)
+    solo_pagina = s["dominio"].startswith("pagina:")
+    if solo_pagina:
+        res, est = 0, "OK"
+    else:
+        res, est = read_count(ads_url(s["dominio"]), use_state=False)
     print([hoy, name, s["dominio"], res, est], flush=True)
     if est == "LOGIN_REQUIRED": login = True; break
     metodo, fuente, extra = "dominio", ads_url(s["dominio"]), ""
     if res == 0 and s["anunc_url"]:
         # Solo APPS/INFOPRODUCTOS: dominio dio 0 -> se lee por ANUNCIANTE (pagina) y se usa ese conteo.
         tot, partes, falla = 0, [], False
-        for u in s["anunc_url"]:
-            time.sleep(PAUSE)
+        motivo = "solo anunciante" if solo_pagina else "dominio dio 0"
+        for k, u in enumerate(s["anunc_url"]):
+            if k or not solo_pagina: time.sleep(PAUSE)
             res2, est2 = read_count(u, use_state=False)
             print([hoy, name, s["dominio"], "anunciante", u[-20:], res2, est2], flush=True)
             if est2 == "LOGIN_REQUIRED": login = True; break
@@ -101,7 +110,7 @@ for i, (name, sid, s) in enumerate(plan):
             else: falla = True
         if login: break
         if falla: nones += 1; continue
-        res, metodo, fuente, extra = tot, "anunciante", " ".join(s["anunc_url"]), f" | metodo anunciante (dominio dio 0; paginas: {'+'.join(map(str, partes))})"
+        res, metodo, fuente, extra = tot, "anunciante", " ".join(s["anunc_url"]), f" | metodo anunciante ({motivo}; paginas: {'+'.join(map(str, partes))})"
     if isinstance(res, int):
         row = [hoy, s["dominio"], s["anunciante"], s["link"], s["region"], s["pais"], res, metodo, fuente,
                nota_ceros(HIST[sid], s["dominio"], hoy, res) + extra + (f" | destino: {s['destino']}" if s["destino"] else ""), s["store_id"], f"{s['store_id']}|dominio"]
