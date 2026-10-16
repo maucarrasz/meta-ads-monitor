@@ -90,6 +90,9 @@ nones, login = 0, False
 HIST = {sid: hist_ceros(sid) for _, sid in SHEETS}
 for i, (name, sid, s) in enumerate(plan):
     if i: time.sleep(PAUSE)
+    try:
+        if s["dominio"] in ya_leidos(sid, hoy): print("ya leido hoy por otro run, salto", s["dominio"], flush=True); continue
+    except Exception: pass
     solo_pagina = s["dominio"].startswith("pagina:") or s["compartido"]
     if solo_pagina:
         res, est = 0, "OK"
@@ -113,6 +116,9 @@ for i, (name, sid, s) in enumerate(plan):
         if falla: nones += 1; continue
         res, metodo, fuente, extra = tot, "anunciante", " ".join(s["anunc_url"]), f" | metodo anunciante ({motivo}; paginas: {'+'.join(map(str, partes))})"
     if isinstance(res, int):
+        try:
+            if s["dominio"] in ya_leidos(sid, hoy): print("duplicado evitado", s["dominio"], flush=True); continue
+        except Exception: pass
         row = [hoy, s["dominio"], s["anunciante"], s["link"], s["region"], s["pais"], res, metodo, fuente,
                nota_ceros(HIST[sid], s["dominio"], hoy, res) + extra + (f" | destino: {s['destino']}" if s["destino"] else ""), s["store_id"], f"{s['store_id']}|dominio"]
         _svc().values().append(spreadsheetId=sid, range="Lecturas_Ads!A:L", valueInputOption="USER_ENTERED", body={"values": [row]}).execute()
