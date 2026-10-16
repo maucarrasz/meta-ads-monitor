@@ -1,0 +1,45 @@
+name: Private Sheets authorized session
+on:
+  workflow_dispatch:
+    inputs:
+      recipient_public_key:
+        required: true
+        type: string
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  session:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: mauricio-ai-hub
+          workload_identity_provider: projects/277394231713/locations/global/workloadIdentityPools/github-meta-ads/providers/github-actions
+          service_account: meta-ads-robot@mauricio-ai-hub.iam.gserviceaccount.com
+          token_format: access_token
+          access_token_lifetime: 3600s
+          access_token_scopes: https://www.googleapis.com/auth/spreadsheets,https://www.googleapis.com/auth/documents,https://www.googleapis.com/auth/drive
+      - run: pip install cryptography
+      - name: Seal session for authorized requester
+        env:
+          ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          RECIPIENT: ${{ inputs.recipient_public_key }}
+        run: |
+          python - <<'PY'
+          import os,json,base64,secrets
+          from cryptography.hazmat.primitives import serialization,hashes
+          from cryptography.hazmat.primitives.asymmetric import padding
+          from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+          pub=serialization.load_pem_public_key(base64.b64decode(os.environ['RECIPIENT']))
+          key=secrets.token_bytes(32);nonce=secrets.token_bytes(12)
+          wrapped=pub.encrypt(key,padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
+          blob=AESGCM(key).encrypt(nonce,os.environ['ACCESS_TOKEN'].encode(),None)
+          enc=lambda b:base64.b64encode(b).decode()
+          print('SEALED_SESSION='+json.dumps({'key':enc(wrapped),'nonce':enc(nonce),'blob':enc(blob)}))
+          PY
