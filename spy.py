@@ -50,9 +50,15 @@ def read_list(name, sid, hoy):
         out.append({"store_id": r[c[0]], "dominio": d, "anunciante": r[c[2]], "link": r[c[3]] if c[3] is not None else "", "region": r[c[4]], "pais": r[c[5]], "anunc_url": urls, "destino": r[19].strip(), "compartido": (r[20].strip().upper() == "SI" or d in SHARED) and bool(urls)})
     return out
 
-def ya_leidos(sid, hoy):
+_YL = {}
+def ya_leidos(sid, hoy, ttl=300, fresh=False):
+    """Cache por corrida (5 min) para no releer Lecturas_Ads por cada dominio; fresh=True fuerza lectura (antes de escribir)."""
+    t = time.time(); c = _YL.get((sid, hoy))
+    if c and not fresh and t - c[0] < ttl: return c[1]
     rows = _svc().values().get(spreadsheetId=sid, range="Lecturas_Ads!A:B").execute().get("values", [])
-    return {r[1] for r in rows if len(r) > 1 and r[0] == hoy}
+    v = {r[1] for r in rows if len(r) > 1 and r[0] == hoy}
+    _YL[(sid, hoy)] = (t, v)
+    return v
 
 
 def hist_ceros(sid):
@@ -117,7 +123,7 @@ for i, (name, sid, s) in enumerate(plan):
         res, metodo, fuente, extra = tot, "anunciante", " ".join(s["anunc_url"]), f" | metodo anunciante ({motivo}; paginas: {'+'.join(map(str, partes))})"
     if isinstance(res, int):
         try:
-            if s["dominio"] in ya_leidos(sid, hoy): print("duplicado evitado", s["dominio"], flush=True); continue
+            if s["dominio"] in ya_leidos(sid, hoy, fresh=True): print("duplicado evitado", s["dominio"], flush=True); continue
         except Exception: pass
         row = [hoy, s["dominio"], s["anunciante"], s["link"], s["region"], s["pais"], res, metodo, fuente,
                nota_ceros(HIST[sid], s["dominio"], hoy, res) + extra + (f" | destino: {s['destino']}" if s["destino"] else ""), s["store_id"], f"{s['store_id']}|dominio"]
