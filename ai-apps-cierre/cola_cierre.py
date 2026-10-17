@@ -9,7 +9,8 @@ import time
 import urllib.parse
 import urllib.request
 
-SHEET_ID = os.environ['AI_APPS_SHEET_ID']
+CHANNELS_SHEET_ID = os.environ['CHANNELS_SHEET_ID']
+SHEET_ID = None
 TAB = 'Cola cierre 17-oct'
 SCOPE = 'https://www.googleapis.com/auth/spreadsheets'
 UA = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36'}
@@ -151,7 +152,12 @@ def run():
     from googleapiclient.discovery import build
     creds, _ = google.auth.default(scopes=[SCOPE])
     svc = build('sheets', 'v4', credentials=creds, cache_discovery=False).spreadsheets()
-    values = execute(svc.values().get(spreadsheetId=SHEET_ID, range="'%s'!A1:R60" % TAB)).get('values', [])
+    cfg = execute(svc.values().get(spreadsheetId=CHANNELS_SHEET_ID, range="'CONFIG_CRONS'!A1:B20")).get('values', [])
+    sid = next((r[1] for r in cfg if r and r[0] == 'AI_APPS_SHEET_ID'), None)
+    if not sid:
+        raise RuntimeError('AI_APPS_SHEET_ID not in CONFIG_CRONS')
+    globals()['SHEET_ID'] = sid
+    values = execute(svc.values().get(spreadsheetId=sid, range="'%s'!A1:R60" % TAB)).get('values', [])
     header, data = values[0], values[1:]
     pend = [(i + 2, r) for i, r in enumerate(data) if (list(r) + [''] * 6)[5] == 'PENDIENTE']
     shard, nsh = int(os.environ.get('SHARD', '0')), int(os.environ.get('NSHARDS', '1'))
@@ -180,12 +186,12 @@ def run():
             chunks += [''] * (8 - len(chunks))
             intentos = (r[8] + ' ; ' if r[8] else '') + now + ' OK ' + fuente
             body = {'values': [['OK', fuente, str(len(text)), intentos[-450:], now] + chunks]}
-            execute(svc.values().update(spreadsheetId=SHEET_ID, range="'%s'!F%d:R%d" % (TAB, rownum, rownum), valueInputOption='RAW', body=body))
+            execute(svc.values().update(spreadsheetId=sid, range="'%s'!F%d:R%d" % (TAB, rownum, rownum), valueInputOption='RAW', body=body))
             print('OK', item_id, fuente, len(text))
         except Exception as ex:
             intentos = (r[8] + ' ; ' if r[8] else '') + now + ' FAIL ' + str(ex)[:140]
             body = {'values': [[intentos[-450:], now]]}
-            execute(svc.values().update(spreadsheetId=SHEET_ID, range="'%s'!I%d:J%d" % (TAB, rownum, rownum), valueInputOption='RAW', body=body))
+            execute(svc.values().update(spreadsheetId=sid, range="'%s'!I%d:J%d" % (TAB, rownum, rownum), valueInputOption='RAW', body=body))
             print('FAIL', item_id, str(ex)[:120])
         time.sleep(random.uniform(2, 5))
 
