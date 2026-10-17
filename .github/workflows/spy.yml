@@ -1,22 +1,58 @@
 name: spy
 on:
   schedule:
-    - cron: "30 17 * * *"   # 12:30 hora Peru (horario propio del spy personal, desde 16 oct)
+    # Spy personal (ECOM + APPS + INFOPRODUCTOS). Ventana 08:00-21:00 Lima (UTC-5).
+    # Tres horas de arranque: GitHub omite/retrasa crons; las corridas extra solo retoman lo no leido hoy.
+    - cron: "5 13 * * *"    # 08:05 Lima
+    - cron: "35 14 * * *"   # 09:35 Lima (respaldo)
+    - cron: "5 16 * * *"    # 11:05 Lima (respaldo)
   workflow_dispatch:
     inputs:
       solo_lista:
         description: "1 = solo imprimir que se leeria (sin Facebook)"
         default: ""
+      por_tanda:
+        description: "Dominios por tanda (defecto 55; ~4.4 min por dominio)"
+        default: "55"
 permissions:
   contents: read
   id-token: write
 concurrency:
   group: spy-personal
   cancel-in-progress: false
+env:
+  SPY_SHEETS: "ECOM:1SoJZ7DUGCrNlwQ4DBuNAjnLnmE-eXfPpycbC-Gzsezc,APPS:17Twaxi9-nWjmP14Bx4HRn0EneDXvNtOALNyRACxwl8k,INFOPRODUCTOS:1xbl6jJ6XZrXi5uWETSaT26BflriZwk_x8r3X3c7gRN8"
 jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      shards: ${{ steps.p.outputs.shards }}
+      n: ${{ steps.p.outputs.n }}
+      total: ${{ steps.p.outputs.total }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/277394231713/locations/global/workloadIdentityPools/github-meta-ads/providers/github-actions
+          service_account: meta-ads-robot@mauricio-ai-hub.iam.gserviceaccount.com
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install google-api-python-client google-auth
+      - id: p
+        run: python spy.py   # SPY_PLAN=1: cuenta filas activas y calcula tandas; FALTAN_TANDAS si no alcanzan
+        env:
+          SPY_PLAN: "1"
+          SPY_POR_TANDA: ${{ github.event.inputs.por_tanda || '55' }}
   run:
+    needs: plan
     runs-on: ubuntu-latest
     timeout-minutes: 340
+    strategy:
+      max-parallel: 1          # un solo lector de Facebook a la vez
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.shards) }}
     steps:
       - uses: actions/checkout@v4
       - uses: google-github-actions/auth@v2
@@ -29,7 +65,6 @@ jobs:
       - run: python -m playwright install --with-deps chromium
       - run: python spy.py
         env:
-          SPY_SHEETS: "ECOM:1SoJZ7DUGCrNlwQ4DBuNAjnLnmE-eXfPpycbC-Gzsezc,APPS:17Twaxi9-nWjmP14Bx4HRn0EneDXvNtOALNyRACxwl8k,INFOPRODUCTOS:1xbl6jJ6XZrXi5uWETSaT26BflriZwk_x8r3X3c7gRN8"
           SOLO_LISTA: ${{ github.event.inputs.solo_lista }}
-
-
+          SPY_SHARD: ${{ matrix.shard }}
+          SPY_NSHARDS: ${{ needs.plan.outputs.n }}

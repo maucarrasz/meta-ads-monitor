@@ -81,14 +81,28 @@ def nota_ceros(hist, dom, hoy, res):
     return f"Cron spy personal | sin anuncios hoy (dia {n} de 5)"
 
 hoy = datetime.datetime.now(LIMA).date().isoformat()
-plan = []
+NSH = max(1, int(os.environ.get("SPY_NSHARDS", "1") or 1)); SH = int(os.environ.get("SPY_SHARD", "0") or 0)
+HASTA = int(os.environ.get("SPY_HASTA_HORA", "21"))  # no empezar lecturas despues de esta hora Lima
+full = []  # lista completa estable (todas las filas activas de todas las hojas), para repartir en tandas
+hechos_por = {}
 for name, sid in SHEETS:
     if ONLY and name != ONLY: continue
     lst = read_list(name, sid, hoy)
-    hechos = ya_leidos(sid, hoy)
-    for s in lst:
-        if s["dominio"] not in hechos: plan.append((name, sid, s))
-    print(f"{name}: {len(lst)} dominios en lista, {len(lst) - sum(1 for p in plan if p[0] == name)} ya leidos hoy", flush=True)
+    hechos_por[sid] = ya_leidos(sid, hoy)
+    for s in lst: full.append((name, sid, s))
+    print(f"{name}: {len(lst)} dominios activos en lista", flush=True)
+if os.environ.get("SPY_PLAN"):
+    total = len(full); POR = int(os.environ.get("SPY_POR_TANDA", "55")); MAXT = int(os.environ.get("SPY_MAX_TANDAS", "6"))
+    n = max(1, -(-total // POR))
+    print(f"TOTAL_ACTIVAS={total} TANDAS={n}", flush=True)
+    if n > MAXT: print(f"FALTAN_TANDAS: {total} filas necesitan {n} tandas (maximo {MAXT})", flush=True)
+    out = os.environ.get("GITHUB_OUTPUT")
+    if out:
+        with open(out, "a") as f: f.write("shards=" + str(list(range(min(n, MAXT)))).replace(" ", "") + "\ntotal=" + str(total) + "\nn=" + str(min(n, MAXT)) + "\n")
+    sys.exit(5 if n > MAXT else 0)
+mine = [p for i, p in enumerate(full) if i % NSH == SH]
+plan = [p for p in mine if p[2]["dominio"] not in hechos_por[p[1]]]
+print(f"Tanda {SH+1}/{NSH}: {len(mine)} dominios, {len(mine)-len(plan)} ya leidos hoy, {len(plan)} por leer", flush=True)
 if not plan: print("Nada pendiente hoy."); sys.exit(0)
 print("Se leen:", [p[2]["dominio"] for p in plan], flush=True)
 if os.environ.get("SOLO_LISTA"): sys.exit(0)
@@ -96,6 +110,8 @@ nones, login = 0, False
 HIST = {sid: hist_ceros(sid) for _, sid in SHEETS}
 for i, (name, sid, s) in enumerate(plan):
     if i: time.sleep(PAUSE)
+    if datetime.datetime.now(LIMA).hour >= HASTA:
+        print(f"ALERTA: pasaron las {HASTA}:00 Lima; quedan {len(plan)-i} dominios sin leer en esta tanda.", flush=True); sys.exit(4)
     try:
         if s["dominio"] in ya_leidos(sid, hoy): print("ya leido hoy por otro run, salto", s["dominio"], flush=True); continue
     except Exception: pass
