@@ -38,7 +38,7 @@ jobs:
           service_account: meta-ads-robot@mauricio-ai-hub.iam.gserviceaccount.com
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
-      - run: pip install google-api-python-client google-auth
+      - run: pip install playwright google-api-python-client google-auth  # solo importar; el plan no abre navegador
       - id: p
         run: python spy.py   # SPY_PLAN=1: cuenta filas activas y calcula tandas; FALTAN_TANDAS si no alcanzan
         env:
