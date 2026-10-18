@@ -99,7 +99,7 @@ def main():
     lista = []
     for r in src:
         r = r + [""] * (26 - len(r))
-        if r[11].strip().lower() != "aprobado": continue
+        if r[7].strip().lower() != "aprobado": continue  # ECOM: estado = col H (indice 7)
         dom = _norm_dom(r[1])
         if not dom or (ONLY and dom not in ONLY): continue
         lista.append({"store_id": r[0], "dominio": dom, "anunciante": r[2], "link": r[3], "landing": r[4]})
