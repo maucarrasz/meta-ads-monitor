@@ -7,6 +7,7 @@ import os, re, json, time, datetime, urllib.request, urllib.error
 from sheets import _svc, _norm_dom
 from catalog import _prods, _text, _sitemap
 
+LANDINGS = {d.strip().split("=", 1)[0]: d.strip().split("=", 1)[1] for d in os.environ.get("ESP_LANDINGS", "").split("|") if "=" in d}
 ECOM = os.environ.get("ECOM_ID", "1SoJZ7DUGCrNlwQ4DBuNAjnLnmE-eXfPpycbC-Gzsezc")
 HOY = datetime.date.today().isoformat()
 DRY = bool(os.environ.get("DRY"))
@@ -52,7 +53,7 @@ def total_productos(dom):
         ps = _prods(f"https://{dom}/products.json?limit=250&page={page}")
         if not ps: break
         n += len(ps)
-        if len(ps) < 250: return n
+        if len(ps) < 250: return ("json", n)
         page += 1
     if n == 0:
         sm = _sitemap(dom)
@@ -86,10 +87,17 @@ def handle_desde_landing(landing, dom):
 
 def main():
     ensure_rank_tab()
-    hechos_cat = {r[1] for r in rows("Lecturas_Catálogo", "A2:B") if r and r[0] == HOY and len(r) > 1}
-    hechos_rank = {r[1] for r in rows("Lecturas_Ranking", "A2:B") if r and r[0] == HOY and len(r) > 1}
+    if DRY:
+        hechos_cat, hechos_rank = set(), set()
+        src = []
+        for d in ONLY:
+            src.append(["", d, d, f"https://{d}/", LANDINGS.get(d, f"https://{d}/")] + [""] * 6 + ["aprobado"])
+    else:
+        hechos_cat = {r[1] for r in rows("Lecturas_Catálogo", "A2:B") if r and r[0] == HOY and len(r) > 1}
+        hechos_rank = {r[1] for r in rows("Lecturas_Ranking", "A2:B") if r and r[0] == HOY and len(r) > 1}
+        src = rows("Anunciantes", "A2:Z")
     lista = []
-    for r in rows("Anunciantes", "A2:Z"):
+    for r in src:
         r = r + [""] * (26 - len(r))
         if r[11].strip().lower() != "aprobado": continue
         dom = _norm_dom(r[1])
@@ -142,6 +150,6 @@ def main():
         nota = "" if rank != "" else ("fuera del top " + str(len(best)) if best else "la tienda no expone orden de mas vendidos; solo ficha del producto")
         append("Lecturas_Ranking", [[HOY, d, s["anunciante"], p.get("title",""), f"https://{dom_cat}/products/{handle}", rank, total,
                                      v.get("price",""), moneda, "si" if v.get("available") else "no", metodo, nota]])
-        print(d, "rank", rank or "-", flush=True)
+        print(d, "rank", rank or "-", metodo, "|", nota, "| precio", v.get("price",""), moneda, flush=True)
 
 main()
