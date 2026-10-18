@@ -13,7 +13,7 @@ HOY = datetime.date.today().isoformat()
 DRY = bool(os.environ.get("DRY"))
 ONLY = {d.strip().lower() for d in os.environ.get("ESP_ONLY_DOMAINS", "").split(",") if d.strip()}
 MAXR = int(os.environ.get("ESP_MAX_RANK_PAGES", "2"))   # paginas de 250 en best-selling para ubicar el producto
-HDR_RANK = ["fecha","dominio","anunciante","producto","link_producto","rank_mas_vendidos","total_productos","precio","moneda","disponibilidad","metodo","nota"]
+HDR_RANK = ["fecha","dominio","anunciante","producto","link_producto","rank_mas_vendidos","total_productos","precio","moneda","disponibilidad","metodo","nota","creado"]
 
 def rows(tab, rng):
     return _svc().values().get(spreadsheetId=ECOM, range=f"{tab}!{rng}").execute().get("values", [])
@@ -22,7 +22,7 @@ def append(tab, vals):
     if DRY:
         for v in vals: print("ROW", tab, v, flush=True)
         return
-    _svc().values().append(spreadsheetId=ECOM, range=f"{tab}!A:L", valueInputOption="USER_ENTERED", body={"values": vals}).execute()
+    _svc().values().append(spreadsheetId=ECOM, range=f"{tab}!A:M", valueInputOption="USER_ENTERED", body={"values": vals}).execute()
 
 def ensure_rank_tab():
     global DRY
@@ -31,9 +31,9 @@ def ensure_rank_tab():
         _svc().batchUpdate(spreadsheetId=ECOM, body={"requests":[{"addSheet":{"properties":{"title":"Lecturas_Ranking"}}}]}).execute()
     except Exception:
         pass
-    cur = rows("Lecturas_Ranking", "A1:L1")
+    cur = rows("Lecturas_Ranking", "A1:M1")
     if not cur:
-        _svc().values().update(spreadsheetId=ECOM, range="Lecturas_Ranking!A1:L1", valueInputOption="RAW", body={"values":[HDR_RANK]}).execute()
+        _svc().values().update(spreadsheetId=ECOM, range="Lecturas_Ranking!A1:M1", valueInputOption="RAW", body={"values":[HDR_RANK]}).execute()
 
 def get_json(url):
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15", "Accept": "application/json"})
@@ -118,7 +118,7 @@ def main():
             if d not in hechos_cat:
                 append("Lecturas_Catálogo", [[HOY, d, s["anunciante"], s["link"], "", "NO VERIFICABLE", "catalogo no legible (products.json y sitemap fallaron)", s["store_id"], "cron espcatalogo"]])
             if d not in hechos_rank:
-                append("Lecturas_Ranking", [[HOY, d, s["anunciante"], "NO VERIFICABLE", s["landing"], "", "", "", "", "", "NO VERIFICABLE", "catalogo no legible; no se puede rastrear el producto"]])
+                append("Lecturas_Ranking", [[HOY, d, s["anunciante"], "NO VERIFICABLE", s["landing"], "", "", "", "", "", "NO VERIFICABLE", "catalogo no legible; no se puede rastrear el producto", "NO VERIFICABLE"]])
             print(d, "SIN CATALOGO", flush=True); continue
         fuente, total = t
         if d not in hechos_cat:
@@ -126,7 +126,7 @@ def main():
         handle, como = handle_desde_landing(s["landing"], dom_cat)
         if not handle:
             if d not in hechos_rank:
-                append("Lecturas_Ranking", [[HOY, d, s["anunciante"], "NO VERIFICABLE", s["landing"], "", total, "", "", "", "NO VERIFICABLE", f"producto no resuelto ({como}); no es /products/ ni enlaza a uno"]])
+                append("Lecturas_Ranking", [[HOY, d, s["anunciante"], "NO VERIFICABLE", s["landing"], "", total, "", "", "", "NO VERIFICABLE", f"producto no resuelto ({como}); no es /products/ ni enlaza a uno", "NO VERIFICABLE"]])
             print(d, "SIN PRODUCTO", como, flush=True); continue
         best = best_selling(dom_cat)
         rank, prod = "", None
@@ -140,7 +140,7 @@ def main():
             pj = None
         p = prod or pj
         if p is None:
-            append("Lecturas_Ranking", [[HOY, d, s["anunciante"], "NO VERIFICABLE", s["landing"], "", total, "", "", "", "NO VERIFICABLE", f"handle {handle} no existe en el catalogo"]])
+            append("Lecturas_Ranking", [[HOY, d, s["anunciante"], "NO VERIFICABLE", s["landing"], "", total, "", "", "", "NO VERIFICABLE", f"handle {handle} no existe en el catalogo", "NO VERIFICABLE"]])
             print(d, "HANDLE NO EXISTE", handle, flush=True); continue
         v = (p.get("variants") or [{}])[0]
         moneda = ""
@@ -149,7 +149,7 @@ def main():
         metodo = "best-selling" if best else "sin ranking publico"
         nota = "" if rank != "" else ("fuera del top " + str(len(best)) if best else "la tienda no expone orden de mas vendidos; solo ficha del producto")
         append("Lecturas_Ranking", [[HOY, d, s["anunciante"], p.get("title",""), f"https://{dom_cat}/products/{handle}", rank, total,
-                                     v.get("price",""), moneda, "si" if v.get("available") else "no", metodo, nota]])
+                                     v.get("price",""), moneda, "si" if v.get("available") else "no", metodo, nota, (p.get("published_at") or p.get("created_at") or "")[:10] or "NO VERIFICABLE"]])
         print(d, "rank", rank or "-", metodo, "|", nota, "| precio", v.get("price",""), moneda, flush=True)
 
 main()
