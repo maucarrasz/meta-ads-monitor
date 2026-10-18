@@ -12,8 +12,8 @@ on:
         description: "1 = solo imprimir que se leeria (sin Facebook)"
         default: ""
       por_tanda:
-        description: "Dominios por tanda (defecto 55; ~4.4 min por dominio)"
-        default: "55"
+        description: "Dominios por tanda (defecto 30; ~4.4 min por dominio). Tandas en PARALELO: agregar tiendas no alarga la corrida"
+        default: "30"
 permissions:
   contents: read
   id-token: write
@@ -21,6 +21,7 @@ concurrency:
   group: spy-personal
   cancel-in-progress: false
 env:
+  SPY_MAX_TANDAS: "12"         # hasta 12 tandas x 30 = 360 dominios sin alargar la corrida; si faltan, el plan sale rojo (FALTAN_TANDAS)
   SPY_SHEETS: "ECOM:1SoJZ7DUGCrNlwQ4DBuNAjnLnmE-eXfPpycbC-Gzsezc,APPS:17Twaxi9-nWjmP14Bx4HRn0EneDXvNtOALNyRACxwl8k,INFOPRODUCTOS:1xbl6jJ6XZrXi5uWETSaT26BflriZwk_x8r3X3c7gRN8"
 jobs:
   plan:
@@ -47,9 +48,9 @@ jobs:
   run:
     needs: plan
     runs-on: ubuntu-latest
-    timeout-minutes: 340
+    timeout-minutes: 200
     strategy:
-      max-parallel: 1          # un solo lector de Facebook a la vez
+      max-parallel: 12         # tandas en paralelo; cada tanda es un lector lento (240 s/dominio), escalable
       fail-fast: false
       matrix:
         shard: ${{ fromJSON(needs.plan.outputs.shards) }}
