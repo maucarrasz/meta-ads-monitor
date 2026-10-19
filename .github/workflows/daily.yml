@@ -10,6 +10,9 @@ on:
       shard:
         description: "Robot 0, 1, 2, 3 o all (todas las tiendas)"
         default: "all"
+      hasta:
+        description: "Hora Lima de corte (defecto 12). Solo excepcion del dia"
+        default: ""
       solo_lista:
         description: "1 = solo imprimir la lista de tiendas (sin Facebook)"
         default: ""
@@ -63,3 +66,4 @@ jobs:
           SHARD: ${{ matrix.shard }}
           NSHARDS: ${{ needs.plan.outputs.nshards }}
           SOLO_LISTA: ${{ github.event.inputs.solo_lista }}
+          DAILY_HASTA: ${{ github.event.inputs.hasta }}

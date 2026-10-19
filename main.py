@@ -15,7 +15,7 @@ NO_INGESTA = {"info.doutornature.com"}
 
 def seconds_to_deadline(now=None):
     now = (now or datetime.datetime.now(LIMA)).astimezone(LIMA)
-    return max(0, (now.replace(hour=12, minute=0, second=0, microsecond=0) - now).total_seconds())
+    return max(0, (now.replace(hour=int(os.environ.get('DAILY_HASTA') or 12), minute=0, second=0, microsecond=0) - now).total_seconds())
 
 
 class DailyDeadline(Exception):
