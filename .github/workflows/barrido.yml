@@ -15,6 +15,7 @@ concurrency:
   group: barrido-apps
   cancel-in-progress: false
 env:
+  SPY_HASTA_HORA: "24"         # autorizado por Mauricio 18 oct 21:50 para este barrido
   SPY_MAX_TANDAS: "12"         # hasta 12 tandas x 30 = 360 dominios sin alargar la corrida; si faltan, el plan sale rojo (FALTAN_TANDAS)
   SPY_SHEETS: "BARRIDO:1pfWBv6rkV6ZTGeObrhCVZUEzEUaq6og65Jf-CHi_e7E"
 jobs:
@@ -38,7 +39,7 @@ jobs:
         run: python spy.py   # SPY_PLAN=1: cuenta filas activas y calcula tandas; FALTAN_TANDAS si no alcanzan
         env:
           SPY_PLAN: "1"
-          SPY_POR_TANDA: ${{ github.event.inputs.por_tanda || '55' }}
+          SPY_POR_TANDA: ${{ github.event.inputs.por_tanda || '37' }}
   run:
     needs: plan
     runs-on: ubuntu-latest
