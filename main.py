@@ -1,4 +1,4 @@
-"""Una corrida diaria desde Base unica/Tiendas; termina a las 12:00 Lima."""
+"""Una corrida diaria desde Base unica/Tiendas; termina a las 20:00 Lima (DAILY_HASTA)."""
 import datetime
 import os
 import signal
@@ -15,7 +15,7 @@ NO_INGESTA = {"info.doutornature.com"}
 
 def seconds_to_deadline(now=None):
     now = (now or datetime.datetime.now(LIMA)).astimezone(LIMA)
-    return max(0, (now.replace(hour=int(os.environ.get('DAILY_HASTA') or 12), minute=0, second=0, microsecond=0) - now).total_seconds())
+    return max(0, (now.replace(hour=int(os.environ.get('DAILY_HASTA') or 20), minute=0, second=0, microsecond=0) - now).total_seconds())
 
 
 class DailyDeadline(Exception):
