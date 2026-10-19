@@ -6,7 +6,9 @@ STATE = os.path.join(os.path.dirname(__file__), "..", "session", "state.json")
 LOGIN_MARKERS = ["confirm your identity", "checkpoint", "iniciar sesión para continuar", "confirma tu identidad", "you must log in", "log in to continue"]
 RESULT_TOTAL = re.compile(r"(?<![\w.,])(~?)\s*(\d{1,3}(?:,\d{3})+|\d+)\s+results?\b", re.I)
 
-def read_count(url, headless=True, use_state=True, evidence=None, timeout_ms=110000):
+NO_MATCH = re.compile(r"no ads match your search criteria|no ads match", re.I)
+
+def read_count(url, headless=True, use_state=True, evidence=None, timeout_ms=200000):
     """Devuelve (resultado, estado). resultado = entero, 'LOGIN_REQUIRED' o 'NONE'. Nunca inventa."""
     started = time.monotonic()
     with sync_playwright() as p:
@@ -25,6 +27,20 @@ def read_count(url, headless=True, use_state=True, evidence=None, timeout_ms=110
             page.wait_for_timeout(min(12000, remaining()))
             text = page.inner_text("body", timeout=remaining())
             url_now = page.url.lower()
+            # Un "No ads match" puede ser un falso cero (la pagina aun no cargo o Facebook devolvio vacio).
+            # Se confirma recargando: el cero solo vale si se repite; si aparece un numero, gana el numero.
+            for _ in range(2):
+                if RESULT_TOTAL.search(text) or not NO_MATCH.search(text):
+                    break
+                page.wait_for_timeout(20000)
+                page.reload(wait_until="domcontentloaded", timeout=60000)
+                page.wait_for_timeout(15000)
+                text2 = page.inner_text("body", timeout=60000)
+                url_now = page.url.lower()
+                if RESULT_TOTAL.search(text2) or not NO_MATCH.search(text2):
+                    text = text2
+                    break
+                text = text2
         except Exception as e:
             b.close(); return "NONE", "ERROR:" + type(e).__name__
         b.close()

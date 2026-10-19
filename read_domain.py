@@ -9,7 +9,7 @@ from scraper import read_count
 def read(domain, *, include_count_text=False):
     evidence = {}
     try:
-        value, state = read_count(ads_url(domain), use_state=False, evidence=evidence, timeout_ms=95000)
+        value, state = read_count(ads_url(domain), use_state=False, evidence=evidence, timeout_ms=200000)
     except Exception:
         value, state = None, "READ_ERROR"
     result = observation(domain, value, state, evidence)
