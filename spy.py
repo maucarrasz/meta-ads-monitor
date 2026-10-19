@@ -26,7 +26,7 @@ def norm(d):
 
 import re
 # Columnas de la pestana Anunciantes segun el tipo de Sheet: (id, dominio, nombre, link, region, pais, estado)
-COLS = {"ECOM": (0, 1, 2, 3, 5, 6, 7), "APPS": (0, 8, 1, None, 9, 10, 11), "INFOPRODUCTOS": (0, 8, 1, None, 9, 10, 11)}
+COLS = {"ECOM": (0, 1, 2, 3, 5, 6, 7), "APPS": (0, 8, 1, None, 9, 10, 11), "INFOPRODUCTOS": (0, 8, 1, None, 9, 10, 11), "BARRIDO": (0, 8, 1, None, 9, 10, 11)}
 
 def activo(estado, hoy):
     e = (estado or "").strip().lower()
