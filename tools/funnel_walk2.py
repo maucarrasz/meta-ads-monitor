@@ -3,7 +3,7 @@ import sys,re,os,json
 from playwright.sync_api import sync_playwright
 url,out=sys.argv[1],sys.argv[2]; lang=sys.argv[3] if len(sys.argv)>3 else "pt-BR"; os.makedirs(out,exist_ok=True)
 CONT=re.compile(r"obtener|comprar|get my plan|continu|avan[cç]|pr[oó]xim|next|siguiente|entendi|ver meu|ver mi|quero|descobr|come[cç]|iniciar|start|resultado|liberar|garantir|acessar|receber|enviar|calcular|analis|sim,|get my|show|reveal|discover|see my|comenzar|empezar",re.I)
-BAD=re.compile(r"pol[ií]tica|termos|privacy|cookie|terms|login|entrar",re.I)
+BAD=re.compile(r"do not sell|sell my|contact|support|soporte|^volver|^voltar|^back|^atr[aá]s|pol[ií]tica|termos|privacy|cookie|terms|login|entrar",re.I)
 CARD=re.compile(r"card|cart[aã]o|cvv|cvc|expir|cc-",re.I)
 CHK=re.compile(r"checkout|pay\.hotmart|payt\.com|hotmart\.com|kiwify|eduzz|monetizze|stripe|paypal|pagamento|/pay/",re.I)
 log={"steps":[],"checkout_url":"","end":""}
@@ -16,7 +16,12 @@ JS_LIST="""()=>{document.querySelectorAll('[data-fx]').forEach(e=>e.removeAttrib
   e.setAttribute('data-fx',k); out.push({k,t,y:r.y+scrollY,len:t.length,tag:e.tagName}); k++;}
  return out}"""
 def jsclick(pg,k):
-    try: pg.evaluate("k=>{const e=document.querySelector('[data-fx=\"'+k+'\"]');if(e){e.scrollIntoView({block:'center'});e.click()}}",k)
+    try:
+        el=pg.query_selector('[data-fx="%s"]'%k)
+        if el:
+            el.scroll_into_view_if_needed(timeout=2000); bb=el.bounding_box()
+            if bb: pg.mouse.click(bb["x"]+bb["width"]/2,bb["y"]+bb["height"]/2); return
+        pg.evaluate("k=>{const e=document.querySelector('[data-fx=\"'+k+'\"]');if(e){e.click()}}",k)
     except Exception: pass
 with sync_playwright() as p:
     b=p.chromium.launch(headless=True); pg=b.new_context(viewport={"width":412,"height":915},locale=lang).new_page()
@@ -42,7 +47,7 @@ with sync_playwright() as p:
         ins=[i for i in pg.query_selector_all("input:not([type=radio]):not([type=checkbox]):not([type=hidden]), textarea") if i.is_visible()]
         if any(CARD.search(" ".join((i.get_attribute(x) or "") for x in("name","placeholder","id","autocomplete"))) for i in ins):
             log["checkout_url"]=cur; log["end"]="formulario de tarjeta visible (no se ingresa tarjeta)"; break
-        for i in ins:
+        for idx,i in enumerate(ins):
             at=" ".join((i.get_attribute(x) or "") for x in("type","name","placeholder","id","autocomplete")).lower(); v="30"
             _m=re.search(r"value from (\d+)\D{0,6}to (\d+)",body)
             if _m: v=str((int(_m.group(1))+int(_m.group(2)))//2)
@@ -54,6 +59,7 @@ with sync_playwright() as p:
             elif re.search("altura|height",at): v="165"
             elif re.search(r"\bft\b|feet|foot",at): v="5"
             elif re.search(r"\bin\b|inch",at): v="8"
+            if re.search(r'mides|altura|height|estatura',body[:300],re.I) and len(ins)==2 and re.search(r'\bFT\b',body): v=['5','7'][idx%2]
             try:
                 if v: i.fill(v)
             except Exception: pass
@@ -61,6 +67,15 @@ with sync_playwright() as p:
         cont=[q for q in info if CONT.search(q["t"])]
         opts=sorted([q for q in info if q not in cont and q["tag"]!="A" or (q not in cont and q["len"]<60)],key=lambda q:(q["y"]))
         opts=sorted(opts,key=lambda q:0 if re.search(r'nenhum|nenhuma|none|ninguno|n[aã]o tenho|nada disso',q['t'],re.I) else 1)
+        if not opts and not cont:
+            try:
+                pg.evaluate("document.querySelectorAll('[data-fx]').forEach(e=>e.removeAttribute('data-fx'))")
+                lst=pg.evaluate("()=>{let k=1000;const out=[];for(const e of document.querySelectorAll('div,span,p,li,h3,h4')){if(e.children.length>0)continue;if(e.closest('a,footer'))continue;const t=(e.innerText||'').trim();if(t.length<2||t.length>60)continue;const r=e.getBoundingClientRect();if(r.width<30||r.height<14)continue;e.setAttribute('data-fx',k);out.push({k,t,y:r.y+scrollY,len:t.length,tag:e.tagName});k++}return out}")
+                lst=[q for q in lst if not BAD.search(q['t'])]
+                if lst:
+                    o=sorted(lst,key=lambda q:q['y']); o=o[1:] or o
+                    pg.get_by_text(o[min(stuck,len(o)-1)]['t'],exact=True).first.click(timeout=3000); continue
+            except Exception: pass
         multi=re.search(r"selecione|mais de uma|todas que|select all|marque",body,re.I)
         if stuck==0 and opts and not (cont and not multi and len(opts)==0):
             if multi:
