@@ -36,7 +36,8 @@ with sync_playwright() as p:
             stuck+=1
             if stuck==2: print("DBG",[ (q["t"][:25],q["tag"]) for q in pg.evaluate(JS_LIST)][:14],flush=True)
             if stuck>=5: log["end"]="sin avance"; break
-        if CHK.search(cur) and not re.search(re.escape(url.split('/')[2]),cur):
+        from urllib.parse import urlsplit as _u
+        if CHK.search(_u(cur).netloc+_u(cur).path) and _u(cur).netloc!=_u(url).netloc:
             log["checkout_url"]=cur; log["end"]="checkout alcanzado (sin pagar)"; break
         ins=[i for i in pg.query_selector_all("input:not([type=radio]):not([type=checkbox]):not([type=hidden]), textarea") if i.is_visible()]
         if any(CARD.search(" ".join((i.get_attribute(x) or "") for x in("name","placeholder","id","autocomplete"))) for i in ins):
@@ -55,13 +56,14 @@ with sync_playwright() as p:
         info=[q for q in pg.evaluate(JS_LIST) if not BAD.search(q["t"])]
         cont=[q for q in info if CONT.search(q["t"])]
         opts=sorted([q for q in info if q not in cont and q["tag"]!="A" or (q not in cont and q["len"]<60)],key=lambda q:(q["y"]))
+        opts=sorted(opts,key=lambda q:0 if re.search(r'nenhum|nenhuma|none|ninguno|n[aã]o tenho|nada disso',q['t'],re.I) else 1)
         multi=re.search(r"selecione|mais de uma|todas que|select all|marque",body,re.I)
         if stuck==0 and opts and not (cont and not multi and len(opts)==0):
             if multi:
                 sel=[]
                 for q in opts:
                     if all(abs(q['y']-y)>25 for y in sel): sel.append(q['y']); jsclick(pg,q['k']); pg.wait_for_timeout(500)
-                    if len(sel)>=2: break
+                    if len(sel)>=2 or re.search(r'nenhum|nenhuma|none|ninguno|n[aã]o tenho|nada disso',q['t'],re.I): break
                 pg.wait_for_timeout(500)
                 info=[q for q in pg.evaluate(JS_LIST) if not BAD.search(q["t"])]; cont=[q for q in info if CONT.search(q["t"])]
                 if cont: jsclick(pg,cont[-1]["k"])
