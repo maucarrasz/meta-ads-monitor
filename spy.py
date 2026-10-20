@@ -13,6 +13,17 @@ LIMA = datetime.timezone(datetime.timedelta(hours=-5))
 SHEETS = [x.split(":", 1) for x in os.environ["SPY_SHEETS"].split(",") if ":" in x]
 ONLY = os.environ.get("SPY_ONLY", "")  # opcional: ECOM / APPS
 
+
+def _ex(req, tries=8):
+    """execute() con reintento ante 429/5xx de Sheets (cuota por minuto: las tandas arrancan a la vez)."""
+    import random
+    for k in range(tries):
+        try: return req.execute()
+        except Exception as e:
+            st = getattr(getattr(e, "resp", None), "status", None)
+            if st not in (429, 500, 502, 503) or k == tries - 1: raise
+            time.sleep(min(90, 15 * 2 ** k) * (0.5 + random.random() / 2))
+
 def ads_url(d):
     return ("https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=ALL&is_targeted_country=false"
             f"&media_type=all&q=%22{d}%22&search_type=keyword_exact_phrase&sort_data[direction]=desc&sort_data[mode]=total_impressions")
@@ -36,7 +47,7 @@ def activo(estado, hoy):
 
 def read_list(name, sid, hoy):
     c = COLS[name]
-    rows = _svc().values().get(spreadsheetId=sid, range="Anunciantes!A2:U").execute().get("values", [])
+    rows = _ex(_svc().values().get(spreadsheetId=sid, range="Anunciantes!A2:U")).get("values", [])
     out, seen = [], set()
     for r in rows:
         r = r + [""] * (21 - len(r))
@@ -55,7 +66,7 @@ def ya_leidos(sid, hoy, ttl=300, fresh=False):
     """Cache por corrida (5 min) para no releer Lecturas_Ads por cada dominio; fresh=True fuerza lectura (antes de escribir)."""
     t = time.time(); c = _YL.get((sid, hoy))
     if c and not fresh and t - c[0] < ttl: return c[1]
-    rows = _svc().values().get(spreadsheetId=sid, range="Lecturas_Ads!A:B").execute().get("values", [])
+    rows = _ex(_svc().values().get(spreadsheetId=sid, range="Lecturas_Ads!A:B")).get("values", [])
     v = {r[1] for r in rows if len(r) > 1 and r[0] == hoy}
     _YL[(sid, hoy)] = (t, v)
     return v
@@ -63,7 +74,7 @@ def ya_leidos(sid, hoy, ttl=300, fresh=False):
 
 def hist_ceros(sid):
     """{dominio: {fecha: total}} usando solo lecturas por dominio."""
-    rows = _svc().values().get(spreadsheetId=sid, range="Lecturas_Ads!A:H").execute().get("values", [])
+    rows = _ex(_svc().values().get(spreadsheetId=sid, range="Lecturas_Ads!A:H")).get("values", [])
     h = {}
     for r in rows[1:]:
         if len(r) > 7 and r[7] in ("dominio", "anunciante") and r[6].strip().lstrip("-").isdigit():
@@ -80,6 +91,7 @@ def nota_ceros(hist, dom, hoy, res):
     if n >= 5: return f"Cron spy personal | APAGADO confirmado ({n} dias seguidos sin anuncios)"
     return f"Cron spy personal | sin anuncios hoy (dia {n} de 5)"
 
+time.sleep(0 if os.environ.get('SPY_PLAN') else (int(os.environ.get('SPY_SHARD','0') or 0) % 12) * 20)  # escalona el arranque de tandas (cuota de lectura de Sheets)
 hoy = datetime.datetime.now(LIMA).date().isoformat()
 NSH = max(1, int(os.environ.get("SPY_NSHARDS", "1") or 1)); SH = int(os.environ.get("SPY_SHARD", "0") or 0)
 HASTA = int(os.environ.get("SPY_HASTA_HORA", "21"))  # no empezar lecturas despues de esta hora Lima
@@ -143,7 +155,7 @@ for i, (name, sid, s) in enumerate(plan):
         except Exception: pass
         row = [hoy, s["dominio"], s["anunciante"], s["link"], s["region"], s["pais"], res, metodo, fuente,
                nota_ceros(HIST[sid], s["dominio"], hoy, res) + extra + (f" | destino: {s['destino']}" if s["destino"] else ""), s["store_id"], f"{s['store_id']}|dominio"]
-        _svc().values().append(spreadsheetId=sid, range="Lecturas_Ads!A:L", valueInputOption="USER_ENTERED", body={"values": [row]}).execute()
+        _ex(_svc().values().append(spreadsheetId=sid, range="Lecturas_Ads!A:L", valueInputOption="USER_ENTERED", body={"values": [row]}))
     else:
         nones += 1
 if login:
