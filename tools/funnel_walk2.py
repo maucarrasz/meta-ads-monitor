@@ -2,7 +2,7 @@
 import sys,re,os,json
 from playwright.sync_api import sync_playwright
 url,out=sys.argv[1],sys.argv[2]; lang=sys.argv[3] if len(sys.argv)>3 else "pt-BR"; os.makedirs(out,exist_ok=True)
-CONT=re.compile(r"continu|avan[cç]|pr[oó]xim|next|siguiente|entendi|ver meu|ver mi|quero|descobr|come[cç]|iniciar|start|resultado|liberar|garantir|acessar|receber|enviar|calcular|analis|sim,|get my|show|reveal|discover|see my|comenzar|empezar",re.I)
+CONT=re.compile(r"obtener|comprar|get my plan|continu|avan[cç]|pr[oó]xim|next|siguiente|entendi|ver meu|ver mi|quero|descobr|come[cç]|iniciar|start|resultado|liberar|garantir|acessar|receber|enviar|calcular|analis|sim,|get my|show|reveal|discover|see my|comenzar|empezar",re.I)
 BAD=re.compile(r"pol[ií]tica|termos|privacy|cookie|terms|login|entrar",re.I)
 CARD=re.compile(r"card|cart[aã]o|cvv|cvc|expir|cc-",re.I)
 CHK=re.compile(r"checkout|pay\.hotmart|payt\.com|hotmart\.com|kiwify|eduzz|monetizze|stripe|paypal|pagamento|/pay/",re.I)
@@ -35,7 +35,7 @@ with sync_playwright() as p:
         else:
             stuck+=1
             if stuck==2: print("DBG",[ (q["t"][:25],q["tag"]) for q in pg.evaluate(JS_LIST)][:14],flush=True)
-            if stuck>=5: log["end"]="sin avance"; break
+            if stuck>=int(os.environ.get('STUCK','5')): log["end"]="sin avance"; break
         from urllib.parse import urlsplit as _u
         if CHK.search(_u(cur).netloc+_u(cur).path) and _u(cur).netloc!=_u(url).netloc:
             log["checkout_url"]=cur; log["end"]="checkout alcanzado (sin pagar)"; break
@@ -44,12 +44,16 @@ with sync_playwright() as p:
             log["checkout_url"]=cur; log["end"]="formulario de tarjeta visible (no se ingresa tarjeta)"; break
         for i in ins:
             at=" ".join((i.get_attribute(x) or "") for x in("type","name","placeholder","id","autocomplete")).lower(); v="30"
+            _m=re.search(r"value from (\d+)\D{0,6}to (\d+)",body)
+            if _m: v=str((int(_m.group(1))+int(_m.group(2)))//2)
             if "mail" in at: v="prueba.funnel@example.com"
             elif re.search("tel|phone|whats|celular",at): v="11987654321"
             elif re.search("nome|name|chamar|llam",at): v="Maria Prueba"
             elif "cpf" in at: v="" 
             elif re.search("peso|weight",at): v="75"
             elif re.search("altura|height",at): v="165"
+            elif re.search(r"\bft\b|feet|foot",at): v="5"
+            elif re.search(r"\bin\b|inch",at): v="8"
             try:
                 if v: i.fill(v)
             except Exception: pass
@@ -71,5 +75,7 @@ with sync_playwright() as p:
         elif cont: jsclick(pg,cont[-1]["k"] if stuck%2==0 else cont[0]["k"])
         elif opts: jsclick(pg,opts[min(stuck,len(opts)-1)]["k"])
     log["final_url"]=pg.url
+    try: open(f"{out}/final.html","w").write(pg.content())
+    except Exception: pass
     b.close()
 json.dump(log,open(f"{out}/log.json","w"),ensure_ascii=False,indent=1); print("END",log["end"],log["checkout_url"][:120])
