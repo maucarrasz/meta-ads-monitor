@@ -24,6 +24,16 @@ def _ex(req, tries=8):
             if st not in (429, 500, 502, 503) or k == tries - 1: raise
             time.sleep(min(90, 15 * 2 ** k) * (0.5 + random.random() / 2))
 
+
+_BOOK = {}
+def book(sid):
+    """UNA sola lectura (batchGet) por libro y proceso: Anunciantes + Lecturas_Ads. Un batch cuenta como 1 request (limite Sheets: 60 lecturas/min por usuario y proyecto)."""
+    if sid not in _BOOK:
+        r = _ex(_svc().values().batchGet(spreadsheetId=sid, ranges=["Anunciantes!A2:U", "Lecturas_Ads!A:H"]))
+        vr = r.get("valueRanges", [])
+        _BOOK[sid] = (vr[0].get("values", []) if len(vr) > 0 else [], vr[1].get("values", []) if len(vr) > 1 else [])
+    return _BOOK[sid]
+
 def ads_url(d):
     return ("https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=ALL&is_targeted_country=false"
             f"&media_type=all&q=%22{d}%22&search_type=keyword_exact_phrase&sort_data[direction]=desc&sort_data[mode]=total_impressions")
@@ -47,7 +57,7 @@ def activo(estado, hoy):
 
 def read_list(name, sid, hoy):
     c = COLS[name]
-    rows = _ex(_svc().values().get(spreadsheetId=sid, range="Anunciantes!A2:U")).get("values", [])
+    rows = book(sid)[0]
     out, seen = [], set()
     for r in rows:
         r = r + [""] * (21 - len(r))
@@ -61,20 +71,17 @@ def read_list(name, sid, hoy):
         out.append({"store_id": r[c[0]], "dominio": d, "anunciante": r[c[2]], "link": r[c[3]] if c[3] is not None else "", "region": r[c[4]], "pais": r[c[5]], "anunc_url": urls, "destino": r[19].strip(), "compartido": (r[20].strip().upper() == "SI" or d in SHARED) and bool(urls)})
     return out
 
-_YL = {}
-def ya_leidos(sid, hoy, ttl=300, fresh=False):
-    """Cache por corrida (5 min) para no releer Lecturas_Ads por cada dominio; fresh=True fuerza lectura (antes de escribir)."""
-    t = time.time(); c = _YL.get((sid, hoy))
-    if c and not fresh and t - c[0] < ttl: return c[1]
-    rows = _ex(_svc().values().get(spreadsheetId=sid, range="Lecturas_Ads!A:G")).get("values", [])
-    v = {r[1] for r in rows if len(r) > 6 and r[0] == hoy and r[6].strip().lstrip("-").isdigit()}  # NONE/ERROR no cuenta como leido: se reintenta
-    _YL[(sid, hoy)] = (t, v)
-    return v
+_DONE = {}
+def ya_leidos(sid, hoy, ttl=0, fresh=False):
+    """Dominios con lectura numerica hoy: salen de la lectura inicial + lo que esta tanda escribio (sin releer Sheets). Las tandas son disjuntas y las corridas se serializan."""
+    if sid not in _DONE:
+        _DONE[sid] = {r[1] for r in book(sid)[1] if len(r) > 6 and r[0] == hoy and r[6].strip().lstrip("-").isdigit()}  # NONE/ERROR no cuenta
+    return _DONE[sid]
 
 
 def hist_ceros(sid):
     """{dominio: {fecha: total}} usando solo lecturas por dominio."""
-    rows = _ex(_svc().values().get(spreadsheetId=sid, range="Lecturas_Ads!A:H")).get("values", [])
+    rows = book(sid)[1]
     h = {}
     for r in rows[1:]:
         if len(r) > 7 and r[7] in ("dominio", "anunciante") and r[6].strip().lstrip("-").isdigit():
@@ -157,6 +164,7 @@ for i, (name, sid, s) in enumerate(plan):
         row = [hoy, s["dominio"], s["anunciante"], s["link"], s["region"], s["pais"], res, metodo, fuente,
                nota_ceros(HIST[sid], s["dominio"], hoy, res) + extra + (f" | destino: {s['destino']}" if s["destino"] else ""), s["store_id"], f"{s['store_id']}|dominio"]
         _ex(_svc().values().append(spreadsheetId=sid, range="Lecturas_Ads!A:L", valueInputOption="USER_ENTERED", body={"values": [row]}))
+        ya_leidos(sid, hoy).add(s["dominio"])
     else:
         nones += 1
         fallidos.append((name, sid, s))
