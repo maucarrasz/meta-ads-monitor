@@ -7,7 +7,7 @@ from sheets import _svc
 
 PAUSE = 240
 SHARED = {"quiz.fitme.expert"}  # plataformas compartidas: el conteo por dominio mezcla anunciantes; se lee por pagina
-MAX_NONE = int(os.environ.get("MAX_NONE", "3"))
+MAX_NONE = int(os.environ.get("MAX_NONE", "0"))  # cualquier dominio sin dato deja la corrida en rojo
 LIMA = datetime.timezone(datetime.timedelta(hours=-5))
 # SPY_SHEETS = "ECOM:<id>,APPS:<id>,INFOPRODUCTOS:<id>"
 SHEETS = [x.split(":", 1) for x in os.environ["SPY_SHEETS"].split(",") if ":" in x]
@@ -66,8 +66,8 @@ def ya_leidos(sid, hoy, ttl=300, fresh=False):
     """Cache por corrida (5 min) para no releer Lecturas_Ads por cada dominio; fresh=True fuerza lectura (antes de escribir)."""
     t = time.time(); c = _YL.get((sid, hoy))
     if c and not fresh and t - c[0] < ttl: return c[1]
-    rows = _ex(_svc().values().get(spreadsheetId=sid, range="Lecturas_Ads!A:B")).get("values", [])
-    v = {r[1] for r in rows if len(r) > 1 and r[0] == hoy}
+    rows = _ex(_svc().values().get(spreadsheetId=sid, range="Lecturas_Ads!A:G")).get("values", [])
+    v = {r[1] for r in rows if len(r) > 6 and r[0] == hoy and r[6].strip().lstrip("-").isdigit()}  # NONE/ERROR no cuenta como leido: se reintenta
     _YL[(sid, hoy)] = (t, v)
     return v
 
@@ -119,6 +119,7 @@ if not plan: print("Nada pendiente hoy."); sys.exit(0)
 print("Se leen:", [p[2]["dominio"] for p in plan], flush=True)
 if os.environ.get("SOLO_LISTA"): sys.exit(0)
 nones, login = 0, False
+fallidos = []
 HIST = {sid: hist_ceros(sid) for _, sid in SHEETS}
 for i, (name, sid, s) in enumerate(plan):
     if i: time.sleep(PAUSE)
@@ -147,7 +148,7 @@ for i, (name, sid, s) in enumerate(plan):
             if isinstance(res2, int): tot += res2; partes.append(res2)
             else: falla = True
         if login: break
-        if falla: nones += 1; continue
+        if falla: nones += 1; fallidos.append((name, sid, s)); continue
         res, metodo, fuente, extra = tot, "anunciante", " ".join(s["anunc_url"]), f" | metodo anunciante ({motivo}; paginas: {'+'.join(map(str, partes))})"
     if isinstance(res, int):
         try:
@@ -158,7 +159,26 @@ for i, (name, sid, s) in enumerate(plan):
         _ex(_svc().values().append(spreadsheetId=sid, range="Lecturas_Ads!A:L", valueInputOption="USER_ENTERED", body={"values": [row]}))
     else:
         nones += 1
+        fallidos.append((name, sid, s))
+        try:  # auditoria: cada intento sin dato queda registrado (NONE), nunca un cero inventado
+            _ex(_svc().values().append(spreadsheetId=sid, range="Lecturas_Ads!A:L", valueInputOption="USER_ENTERED", body={"values": [[hoy, s["dominio"], s["anunciante"], s["link"], s["region"], s["pais"], "NONE", "NONE", ads_url(s["dominio"]), f"Intento sin dato ({est}) {datetime.datetime.now(LIMA).strftime('%H:%M')} Lima; se reintenta en la misma corrida", s["store_id"], f"{s['store_id']}|NONE"]]}))
+        except Exception as e: print("no se pudo registrar NONE", s["dominio"], e, flush=True)
 if login:
     print("ALERTA: Facebook pide login. Se detuvo, sin reintentos."); sys.exit(2)
+if fallidos and not login and datetime.datetime.now(LIMA).hour < HASTA:
+    print(f"Reintento de {len(fallidos)} dominios sin dato", flush=True)
+    for name, sid, s in list(fallidos):
+        time.sleep(PAUSE)
+        if datetime.datetime.now(LIMA).hour >= HASTA: break
+        res, est = read_count(ads_url(s["dominio"]), use_state=False)
+        print([hoy, name, s["dominio"], "reintento", res, est], flush=True)
+        if est == "LOGIN_REQUIRED": login = True; break
+        if isinstance(res, int):
+            row = [hoy, s["dominio"], s["anunciante"], s["link"], s["region"], s["pais"], res, "dominio", ads_url(s["dominio"]),
+                   nota_ceros(HIST[sid], s["dominio"], hoy, res) + " | reintento tras NONE", s["store_id"], f"{s['store_id']}|dominio"]
+            _ex(_svc().values().append(spreadsheetId=sid, range="Lecturas_Ads!A:L", valueInputOption="USER_ENTERED", body={"values": [row]}))
+            nones -= 1
+    if login:
+        print("ALERTA: Facebook pide login. Se detuvo, sin reintentos."); sys.exit(2)
 if nones > MAX_NONE:
     print(f"ALERTA: {nones} dominios sin dato (NONE)."); sys.exit(3)
