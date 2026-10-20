@@ -89,6 +89,8 @@ def run_stores():
         result = read_domain(store["dominio"], include_count_text=True)
         value = result.get("_reported_value")
         state = "OK" if result["status"] == "ready" else result["error_code"]
+        if value == 0 and not result.get("_zero_clean_confirmed"):
+            value, state = None, "ZERO_UNCONFIRMED"  # cero sin doble check anonimo: NONE, nunca 0
         now = datetime.datetime.now(LIMA)
         record = [now.date().isoformat(), store["tienda"], store["dominio"], value if value is not None else "NONE", state]
         append_history(history_id, [record])
@@ -101,8 +103,8 @@ def run_stores():
             print("Meta requiere login o bloqueo; fin sin reintentos.", flush=True)
             return 2
         if value is None: nones += 1
-        # Facebook puede devolver vacio en serie (ceros falsos): 4 "No ads match" seguidos = parar en rojo.
-        zero_streak = zero_streak + 1 if value == 0 and "no ads" in str(result.get("_count_text") or "").lower() else 0
+        # Facebook puede devolver vacio en serie (ceros falsos): 4 ceros sin confirmar seguidos = parar en rojo.
+        zero_streak = zero_streak + 1 if state == "ZERO_UNCONFIRMED" else 0
         if zero_streak >= 4:
             print("ALERTA: 4 'No ads match' seguidos; posible respuesta vacia de Facebook. Fin en rojo.", flush=True)
             return 4

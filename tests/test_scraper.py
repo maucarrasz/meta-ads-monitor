@@ -91,3 +91,29 @@ def test_runtime_can_use_preinstalled_chrome_without_changing_default(monkeypatc
     scraper.read_count('https://www.facebook.com/ads/library/', use_state=False)
     assert 'channel' not in launches[0]
     assert launches[1]['channel'] == 'chrome'
+
+
+@pytest.fixture(autouse=True)
+def _clean_zero(monkeypatch):
+    monkeypatch.setattr(scraper, "clean_recheck", lambda url, timeout_ms=120000: ("ZERO", 0, "No ads match your search criteria"))
+
+
+def test_zero_confirmed_in_clean_session_is_flagged(monkeypatch):
+    browser_with_text(monkeypatch, "No ads match your search criteria")
+    ev = {}
+    assert scraper.read_count("https://www.facebook.com/ads/library/", use_state=False, evidence=ev) == (0, "OK")
+    assert ev["zero_clean_confirmed"] is True
+
+
+def test_zero_contradicted_by_clean_session_uses_the_number(monkeypatch):
+    browser_with_text(monkeypatch, "No ads match your search criteria")
+    monkeypatch.setattr(scraper, "clean_recheck", lambda url, timeout_ms=120000: ("NUMBER", 1900, "~1,900 results"))
+    ev = {}
+    assert scraper.read_count("https://www.facebook.com/ads/library/", use_state=False, evidence=ev) == (1900, "OK")
+    assert ev["zero_overridden_by_clean"] is True and "zero_clean_confirmed" not in ev
+
+
+def test_zero_not_confirmable_is_none_never_zero(monkeypatch):
+    browser_with_text(monkeypatch, "No ads match your search criteria")
+    monkeypatch.setattr(scraper, "clean_recheck", lambda url, timeout_ms=120000: ("UNKNOWN", None, ""))
+    assert scraper.read_count("https://www.facebook.com/ads/library/", use_state=False) == ("NONE", "ZERO_UNCONFIRMED")

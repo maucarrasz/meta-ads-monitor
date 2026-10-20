@@ -15,6 +15,7 @@ def read(domain, *, include_count_text=False):
     result = observation(domain, value, state, evidence)
     if include_count_text:
         result["_count_text"] = evidence.get("count_text")
+        result["_zero_clean_confirmed"] = bool(evidence.get("zero_clean_confirmed"))
         result["_reported_value"] = value if type(value) is int and state == "OK" else None
     return result
 

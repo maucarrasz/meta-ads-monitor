@@ -8,6 +8,38 @@ RESULT_TOTAL = re.compile(r"(?<![\w.,])(~?)\s*(\d{1,3}(?:,\d{3})+|\d+)\s+results
 
 NO_MATCH = re.compile(r"no ads match your search criteria|no ads match", re.I)
 
+
+CLEAN_WAIT_S = int(os.environ.get("CLEAN_RECHECK_WAIT", "60"))
+
+
+def clean_recheck(url, timeout_ms=120000):
+    """Doble check de un cero: sesion NUEVA y anonima (navegador y contexto nuevos, sin cookies ni estado),
+    equivalente a una pestana de incognito. Sin proxies, sin cuenta, sin evasion.
+    Devuelve ('NUMBER', n, texto) | ('ZERO', 0, texto) | ('UNKNOWN', None, texto)."""
+    time.sleep(CLEAN_WAIT_S)
+    try:
+        with sync_playwright() as p:
+            b = p.chromium.launch(headless=True)
+            page = b.new_context(locale="en-US").new_page()
+            page.goto(url, wait_until="domcontentloaded", timeout=min(60000, timeout_ms))
+            page.wait_for_timeout(15000)
+            text = page.inner_text("body", timeout=60000)
+            if NO_MATCH.search(text) and not RESULT_TOTAL.search(text):
+                page.wait_for_timeout(20000)
+                page.reload(wait_until="domcontentloaded", timeout=60000)
+                page.wait_for_timeout(15000)
+                text = page.inner_text("body", timeout=60000)
+            b.close()
+    except Exception:
+        return "UNKNOWN", None, ""
+    m = RESULT_TOTAL.search(text)
+    if m:
+        return "NUMBER", int(m.group(2).replace(",", "")), text[m.start():m.end()].strip()
+    if NO_MATCH.search(text):
+        return "ZERO", 0, NO_MATCH.search(text).group(0)
+    return "UNKNOWN", None, text[:200]
+
+
 def read_count(url, headless=True, use_state=True, evidence=None, timeout_ms=200000):
     """Devuelve (resultado, estado). resultado = entero, 'LOGIN_REQUIRED' o 'NONE'. Nunca inventa."""
     started = time.monotonic()
@@ -60,9 +92,17 @@ def read_count(url, headless=True, use_state=True, evidence=None, timeout_ms=200
         return int(m.group(2).replace(",", "")), "OK"
     no_matches = re.search(r"no ads match your search criteria|no ads match|no results|0 results", text, re.I)
     if no_matches:
-        if evidence is not None:
-            evidence["count_text"] = no_matches.group(0)
-        return 0, "OK"
+        # Regla fija (Mauricio 20-oct): un cero solo vale tras doble check en sesion limpia/anonima distinta.
+        kind, n, ctext = clean_recheck(url)
+        if kind == "NUMBER":
+            if evidence is not None:
+                evidence["count_text"] = ctext; evidence["is_estimate"] = ctext.startswith("~"); evidence["zero_overridden_by_clean"] = True
+            return n, "OK"
+        if kind == "ZERO":
+            if evidence is not None:
+                evidence["count_text"] = no_matches.group(0); evidence["zero_clean_confirmed"] = True
+            return 0, "OK"
+        return "NONE", "ZERO_UNCONFIRMED"
     return "NONE", "NONE"
 
 if __name__ == "__main__":
