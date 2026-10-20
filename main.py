@@ -80,6 +80,7 @@ def run_stores():
         return 0
     print(f"Robot {shard}: {len(stores)} tiendas pendientes desde Base unica/Tiendas y seguimiento personal", flush=True)
     nones = 0
+    zero_streak = 0
     for index, store in enumerate(stores):
         if index:
             if seconds_to_deadline() <= PAUSE + 120: break
@@ -100,6 +101,11 @@ def run_stores():
             print("Meta requiere login o bloqueo; fin sin reintentos.", flush=True)
             return 2
         if value is None: nones += 1
+        # Facebook puede devolver vacio en serie (ceros falsos): 4 "No ads match" seguidos = parar en rojo.
+        zero_streak = zero_streak + 1 if value == 0 and "no ads" in str(result.get("_count_text") or "").lower() else 0
+        if zero_streak >= 4:
+            print("ALERTA: 4 'No ads match' seguidos; posible respuesta vacia de Facebook. Fin en rojo.", flush=True)
+            return 4
     return 3 if nones > max_none else 0
 
 
