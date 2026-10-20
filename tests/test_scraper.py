@@ -8,7 +8,7 @@ import scraper
 
 def browser_with_text(monkeypatch, text, url="https://www.facebook.com/ads/library/"):
     page = SimpleNamespace(url=url, goto=lambda *a, **kw: None,
-                           wait_for_timeout=lambda _: None,
+                           wait_for_timeout=lambda _: None, reload=lambda *a, **kw: None,
                            inner_text=lambda *a, **kw: text)
     browser = SimpleNamespace(new_context=lambda **kw: SimpleNamespace(new_page=lambda: page), close=lambda: None)
 
