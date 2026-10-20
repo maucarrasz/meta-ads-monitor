@@ -87,7 +87,7 @@ def run():
     seen = {(r[1],r[2],r[4]) for r in records if r[0]=='video'}
     stamp = dt.datetime.now(LIMA).isoformat(timespec='seconds')
     updates = []
-    counts = {'channels_ok':0, 'channels_failed':0, 'new_videos':0, 'baseline_videos':0}
+    counts = {'channels_ok':0, 'channels_failed':0, 'channels_skipped':0, 'new_videos':0, 'baseline_videos':0}
     for category, data in zip(TABS, batch[:-1]):
         values = data.get('values', [])
         if not values or [norm(x) for x in values[0][:4]] != ['canal','url','activo','ultima revision']:
@@ -100,6 +100,15 @@ def run():
             key = (category,url)
             prior = channels.get(key)
             row = prior or ['canal',category,url,'','','','','','','','']
+            host = urllib.parse.urlsplit(url).hostname or ''
+            if host not in ('www.youtube.com', 'youtube.com', 'm.youtube.com'):
+                # Multi-platform channel sheet: non-YouTube sources belong to other readers; skip without failing.
+                row[8], row[10] = stamp, 'OMITIDA_NO_YOUTUBE'
+                if not prior:
+                    records.append(row)
+                    channels[key] = row
+                counts['channels_skipped'] += 1
+                continue
             initialized = bool(prior and prior[9] == 'INICIALIZADO')
             try:
                 cid = row[3] or youtube_id(url)
