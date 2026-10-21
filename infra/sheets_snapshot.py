@@ -8,7 +8,7 @@ from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 REPO='maucarrasz/meta-ads-monitor'
-WORKFLOW='sheets-read-session.yml'
+WORKFLOW='wif-session.yml'
 
 def gh(*args, data=None):
     result=subprocess.run(['gh',*args],input=None if data is None else json.dumps(data),text=True,capture_output=True,check=True)
@@ -19,7 +19,7 @@ def session():
     pub=base64.b64encode(key.public_key().public_bytes(serialization.Encoding.PEM,serialization.PublicFormat.SubjectPublicKeyInfo)).decode()
     # Workflow run-name is unique, so concurrent callers never collect each other's session.
     request_id=os.urandom(12).hex()
-    gh('api','--method','POST',f'repos/{REPO}/actions/workflows/{WORKFLOW}/dispatches','--input','-',data={'ref':'main','inputs':{'recipient_public_key':pub,'request_id':request_id}})
+    gh('api','--method','POST',f'repos/{REPO}/actions/workflows/{WORKFLOW}/dispatches','--input','-',data={'ref':'main','inputs':{'recipient_public_key':pub,'request_id':request_id,'read_only':'true'}})
     deadline=time.monotonic()+300
     while time.monotonic()<deadline:
         time.sleep(8)

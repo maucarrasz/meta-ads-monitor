@@ -1,10 +1,18 @@
 name: Private Sheets authorized session
+run-name: sheets-read-${{ inputs.request_id }}
 on:
   workflow_dispatch:
     inputs:
       recipient_public_key:
         required: true
         type: string
+      request_id:
+        required: false
+        type: string
+      read_only:
+        required: false
+        type: boolean
+        default: false
 permissions:
   contents: read
   id-token: write
@@ -24,7 +32,7 @@ jobs:
           service_account: meta-ads-robot@mauricio-ai-hub.iam.gserviceaccount.com
           token_format: access_token
           access_token_lifetime: 3600s
-          access_token_scopes: https://www.googleapis.com/auth/spreadsheets,https://www.googleapis.com/auth/documents,https://www.googleapis.com/auth/drive
+          access_token_scopes: ${{ inputs.read_only && 'https://www.googleapis.com/auth/spreadsheets.readonly' || 'https://www.googleapis.com/auth/spreadsheets,https://www.googleapis.com/auth/documents,https://www.googleapis.com/auth/drive' }}
       - run: pip install cryptography
       - name: Seal session for authorized requester
         env:
