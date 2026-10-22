@@ -1,14 +1,8 @@
 name: daily
 on:
   schedule:
-    - cron: "17 8 * * *"    # 03:17 Lima (GitHub retrasa horas: margen)
-    - cron: "43 9 * * *"    # respaldo 04:43 Lima
-    - cron: "23 11 * * *"   # respaldo 06:23 Lima
-    - cron: "13 12 * * *"   # respaldo 07:13 Lima (ultimo con tiempo antes de las 12:00 Lima)
-    - cron: "13 14 * * *"   # respaldo 09:13 Lima
-    - cron: "13 16 * * *"   # respaldo 11:13 Lima
-    - cron: "13 18 * * *"   # respaldo 13:13 Lima
-    - cron: "13 20 * * *"   # respaldo 15:13 Lima
+    - cron: "17 8 * * *"    # 03:17 Lima (principal)
+    - cron: "13 12 * * *"   # 07:13 Lima: unico respaldo, solo corre si hoy no hay run exitoso/en curso/en cola
   workflow_dispatch:
     inputs:
       shard:
@@ -22,6 +16,7 @@ on:
         default: ""
 permissions:
   contents: read
+  actions: read
   id-token: write
 jobs:
   plan:
@@ -30,19 +25,40 @@ jobs:
     outputs:
       shards: ${{ steps.p.outputs.shards }}
       nshards: ${{ steps.p.outputs.nshards }}
+      skip: ${{ steps.gate.outputs.skip }}
     steps:
+      - id: gate
+        name: Respaldo solo si hoy no hay run del daily
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SCHED: ${{ github.event.schedule }}
+        run: |
+          skip=false
+          if [ "$SCHED" = "13 12 * * *" ]; then
+            day=$(date -u -d '5 hours ago' +%F); since="${day}T05:00:00Z"
+            n=$(gh api "repos/${{ github.repository }}/actions/workflows/daily.yml/runs?per_page=50&created=>=${since}" --jq "[.workflow_runs[]|select(.id!=${{ github.run_id }})|select(.conclusion==null or .conclusion==\"success\")]|length")
+            echo "RESPALDO runs_hoy_validos=$n desde=$since"
+            [ "${n:-0}" -gt 0 ] && skip=true
+          fi
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v4
+        if: steps.gate.outputs.skip != 'true'
       - uses: google-github-actions/auth@v2
+        if: steps.gate.outputs.skip != 'true'
         with:
           workload_identity_provider: projects/277394231713/locations/global/workloadIdentityPools/github-meta-ads/providers/github-actions
           service_account: meta-ads-robot@mauricio-ai-hub.iam.gserviceaccount.com
       - uses: actions/setup-python@v5
+        if: steps.gate.outputs.skip != 'true'
         with: { python-version: "3.12" }
       - run: pip install google-api-python-client google-auth playwright
+        if: steps.gate.outputs.skip != 'true'
       - id: p
+        if: steps.gate.outputs.skip != 'true'
         run: python plan.py
   run:
     needs: plan
+    if: needs.plan.outputs.skip != 'true'
     strategy:
       fail-fast: false
       matrix:
