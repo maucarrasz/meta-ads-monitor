@@ -102,11 +102,14 @@ time.sleep(0 if os.environ.get('SPY_PLAN') else (int(os.environ.get('SPY_SHARD',
 hoy = datetime.datetime.now(LIMA).date().isoformat()
 NSH = max(1, int(os.environ.get("SPY_NSHARDS", "1") or 1)); SH = int(os.environ.get("SPY_SHARD", "0") or 0)
 HASTA = int(os.environ.get("SPY_HASTA_HORA", "21"))  # no empezar lecturas despues de esta hora Lima
+# Fail closed: personal spy must never duplicate a domain listed in Mini Sniper.
+base_rows = _ex(_svc().values().get(spreadsheetId="1cfilechpzK22smRSAz2XatjWwkNX-y70ojc1UMifE8w", range="Tiendas!A2:A" )).get("values", [])
+minisniper_domains = {norm(r[0]) for r in base_rows if r and norm(r[0])}
 full = []  # lista completa estable (todas las filas activas de todas las hojas), para repartir en tandas
 hechos_por = {}
 for name, sid in SHEETS:
     if ONLY and name != ONLY: continue
-    lst = read_list(name, sid, hoy)
+    lst = [s for s in read_list(name, sid, hoy) if s["dominio"] not in minisniper_domains]
     hechos_por[sid] = ya_leidos(sid, hoy)
     for s in lst: full.append((name, sid, s))
     print(f"{name}: {len(lst)} dominios activos en lista", flush=True)
