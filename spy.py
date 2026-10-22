@@ -26,12 +26,18 @@ def _ex(req, tries=8):
 
 
 _BOOK = {}
+_EXCLUDED = {}
 def book(sid):
     """UNA sola lectura (batchGet) por libro y proceso: Anunciantes + Lecturas_Ads. Un batch cuenta como 1 request (limite Sheets: 60 lecturas/min por usuario y proyecto)."""
     if sid not in _BOOK:
-        r = _ex(_svc().values().batchGet(spreadsheetId=sid, ranges=["Anunciantes!A2:U", "Lecturas_Ads!A:H"]))
-        vr = r.get("valueRanges", [])
-        _BOOK[sid] = (vr[0].get("values", []) if len(vr) > 0 else [], vr[1].get("values", []) if len(vr) > 1 else [])
+        if sid == "1SoJZ7DUGCrNlwQ4DBuNAjnLnmE-eXfPpycbC-Gzsezc":
+            ranges = ["Aprobados!A2:J", "Seguimiento!A2:J", "Lecturas_Ads!A:L", "_No_reingresar!A2:B"]
+            vr = _ex(_svc().values().batchGet(spreadsheetId=sid, ranges=ranges)).get("valueRanges", [])
+            _BOOK[sid] = (vr[0].get("values", []) + vr[1].get("values", []), vr[2].get("values", []))
+            _EXCLUDED[sid] = {norm(r[0]) for r in vr[3].get("values", []) if r and norm(r[0])}
+        else:
+            vr = _ex(_svc().values().batchGet(spreadsheetId=sid, ranges=["Anunciantes!A2:U", "Lecturas_Ads!A:H"])).get("valueRanges", [])
+            _BOOK[sid] = (vr[0].get("values", []), vr[1].get("values", []))
     return _BOOK[sid]
 
 def ads_url(d):
@@ -66,7 +72,7 @@ def read_list(name, sid, hoy):
         if not d and urls:
             m = re.search(r"view_all_page_id=(\d+)", urls[0])
             if m: d = "pagina:" + m.group(1)
-        if not d or d in seen or not activo(r[c[6]], hoy): continue
+        if not d or d in seen or d in _EXCLUDED.get(sid, set()) or not activo(r[c[6]], hoy): continue
         seen.add(d)
         out.append({"store_id": r[c[0]], "dominio": d, "anunciante": r[c[2]], "link": r[c[3]] if c[3] is not None else "", "region": r[c[4]], "pais": r[c[5]], "anunc_url": urls, "destino": r[19].strip(), "compartido": (r[20].strip().upper() == "SI" or d in SHARED) and bool(urls)})
     return out

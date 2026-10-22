@@ -9,12 +9,10 @@ from catalog import _prods, _text, _sitemap
 
 LANDINGS = {d.strip().split("=", 1)[0]: d.strip().split("=", 1)[1] for d in os.environ.get("ESP_LANDINGS", "").split("|") if "=" in d}
 ECOM = os.environ.get("ECOM_ID", "1SoJZ7DUGCrNlwQ4DBuNAjnLnmE-eXfPpycbC-Gzsezc")
-HOY = datetime.date.today().isoformat()
+HOY = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=-5))).date().isoformat()
 DRY = bool(os.environ.get("DRY"))
 ONLY = {d.strip().lower() for d in os.environ.get("ESP_ONLY_DOMAINS", "").split(",") if d.strip()}
 MAXR = int(os.environ.get("ESP_MAX_RANK_PAGES", "2"))   # paginas de 250 en best-selling para ubicar el producto
-HDR_RANK = ["fecha","dominio","anunciante","producto","link_producto","rank_mas_vendidos","total_productos","precio","moneda","disponibilidad","metodo","nota","creado"]
-
 def rows(tab, rng):
     return _svc().values().get(spreadsheetId=ECOM, range=f"{tab}!{rng}").execute().get("values", [])
 
@@ -22,18 +20,7 @@ def append(tab, vals):
     if DRY:
         for v in vals: print("ROW", tab, v, flush=True)
         return
-    _svc().values().append(spreadsheetId=ECOM, range=f"{tab}!A:M", valueInputOption="USER_ENTERED", body={"values": vals}).execute()
-
-def ensure_rank_tab():
-    global DRY
-    if DRY: return
-    try:
-        _svc().batchUpdate(spreadsheetId=ECOM, body={"requests":[{"addSheet":{"properties":{"title":"Lecturas_Ranking"}}}]}).execute()
-    except Exception:
-        pass
-    cur = rows("Lecturas_Ranking", "A1:M1")
-    if not cur:
-        _svc().values().update(spreadsheetId=ECOM, range="Lecturas_Ranking!A1:M1", valueInputOption="RAW", body={"values":[HDR_RANK]}).execute()
+    _svc().values().append(spreadsheetId=ECOM, range=f"{tab}!A:I", valueInputOption="USER_ENTERED", body={"values": vals}).execute()
 
 def get_json(url):
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15", "Accept": "application/json"})
@@ -86,70 +73,43 @@ def handle_desde_landing(landing, dom):
     return (m.group(1), "html") if m else (None, "landing sin enlace a producto")
 
 def main():
-    ensure_rank_tab()
-    if DRY:
-        hechos_cat, hechos_rank = set(), set()
-        src = []
-        for d in ONLY:
-            src.append(["", d, d, f"https://{d}/", LANDINGS.get(d, f"https://{d}/")] + [""] * 6 + ["aprobado"])
-    else:
-        hechos_cat = {r[1] for r in rows("Lecturas_Catálogo", "A2:B") if r and r[0] == HOY and len(r) > 1}
-        hechos_rank = {r[1] for r in rows("Lecturas_Ranking", "A2:B") if r and r[0] == HOY and len(r) > 1}
-        src = rows("Anunciantes", "A2:Z")
-    lista = []
-    for r in src:
-        r = r + [""] * (26 - len(r))
-        if r[7].strip().lower() != "aprobado": continue  # ECOM: estado = col H (indice 7)
-        dom = _norm_dom(r[1])
-        if not dom or (ONLY and dom not in ONLY): continue
-        lista.append({"store_id": r[0], "dominio": dom, "anunciante": r[2], "link": r[3], "landing": r[4]})
-    print(f"{len(lista)} tiendas aprobadas", flush=True)
-    for i, s in enumerate(lista):
-        d = s["dominio"]
-        if d in hechos_cat and d in hechos_rank:
-            print("ya leida hoy, salto", d, flush=True); continue
-        dom_cat = d
-        t = total_productos(d)
-        if t is None and d.count(".") > 1:  # subdominio (join.x.com): probar el dominio raiz
-            raiz = ".".join(d.split(".")[-2:])
-            t = total_productos(raiz)
-            if t is not None: dom_cat = raiz
-        if t is None:
-            if d not in hechos_cat:
-                append("Lecturas_Catálogo", [[HOY, d, s["anunciante"], s["link"], "", "NO VERIFICABLE", "catalogo no legible (products.json y sitemap fallaron)", s["store_id"], "cron espcatalogo"]])
-            if d not in hechos_rank:
-                append("Lecturas_Ranking", [[HOY, d, s["anunciante"], "NO VERIFICABLE", s["landing"], "", "", "", "", "", "NO VERIFICABLE", "catalogo no legible; no se puede rastrear el producto", "NO VERIFICABLE"]])
-            print(d, "SIN CATALOGO", flush=True); continue
-        fuente, total = t
-        if d not in hechos_cat:
-            append("Lecturas_Catálogo", [[HOY, d, s["anunciante"], s["link"], total, f"shopify {fuente}" + (f" (leido en {dom_cat})" if dom_cat != d else ""), "", s["store_id"], "cron espcatalogo"]])
-        handle, como = handle_desde_landing(s["landing"], dom_cat)
-        if not handle:
-            if d not in hechos_rank:
-                append("Lecturas_Ranking", [[HOY, d, s["anunciante"], "NO VERIFICABLE", s["landing"], "", total, "", "", "", "NO VERIFICABLE", f"producto no resuelto ({como}); no es /products/ ni enlaza a uno", "NO VERIFICABLE"]])
-            print(d, "SIN PRODUCTO", como, flush=True); continue
-        best = best_selling(dom_cat)
-        rank, prod = "", None
-        if best:
-            for n, p in enumerate(best, 1):
-                if p.get("handle") == handle:
-                    rank, prod = n, p; break
+    # Daily product position plus catalog size. Non-products are not scraped.
+    existing = {r[1] for r in rows("Lecturas_Catalogo", "A2:B") if len(r) > 1 and r[0] == HOY}
+    source = rows("Aprobados", "A2:J") + rows("Seguimiento", "A2:J")
+    for row in source:
+        r = row + [""] * (10 - len(row))
+        d = _norm_dom(r[1])
+        if not d or d in existing or (ONLY and d not in ONLY): continue
+        if "infoproduct" in r[8].lower() or "app" in r[8].lower(): continue
+        if not (r[7].lower().startswith(("aprobad", "seguimiento", "en seguimiento"))): continue
         try:
-            pj = get_json(f"https://{dom_cat}/products/{handle}.json").get("product") if prod is None else None
-        except Exception:
-            pj = None
-        p = prod or pj
-        if p is None:
-            append("Lecturas_Ranking", [[HOY, d, s["anunciante"], "NO VERIFICABLE", s["landing"], "", total, "", "", "", "NO VERIFICABLE", f"handle {handle} no existe en el catalogo", "NO VERIFICABLE"]])
-            print(d, "HANDLE NO EXISTE", handle, flush=True); continue
-        v = (p.get("variants") or [{}])[0]
-        moneda = ""
-        try: moneda = get_json(f"https://{dom_cat}/cart.js").get("currency", "")
-        except Exception: pass
-        metodo = "best-selling" if best else "sin ranking publico"
-        nota = "" if rank != "" else ("fuera del top " + str(len(best)) if best else "la tienda no expone orden de mas vendidos; solo ficha del producto")
-        append("Lecturas_Ranking", [[HOY, d, s["anunciante"], p.get("title",""), f"https://{dom_cat}/products/{handle}", rank, total,
-                                     v.get("price",""), moneda, "si" if v.get("available") else "no", metodo, nota, (p.get("published_at") or p.get("created_at") or "")[:10] or "NO VERIFICABLE"]])
-        print(d, "rank", rank or "-", metodo, "|", nota, "| precio", v.get("price",""), moneda, flush=True)
+            t = total_productos(d)
+            dom_cat = d
+            if t is None and d.count(".") > 1:
+                root = ".".join(d.split(".")[-2:])
+                t = total_productos(root)
+                if t is not None: dom_cat = root
+            total = t[1] if t else ""
+            handle, reason = handle_desde_landing(r[4], dom_cat)
+            title, link, rank, method, note = "", r[4], "", "NO VERIFICABLE", ""
+            if handle:
+                try: product = get_json(f"https://{dom_cat}/products/{handle}.json").get("product")
+                except Exception: product = None
+                if product:
+                    title = product.get("title", "")
+                    link = f"https://{dom_cat}/products/{handle}"
+                    best = best_selling(dom_cat)
+                    if best:
+                        rank = next((i for i, p in enumerate(best, 1) if p.get("handle") == handle), "")
+                        method = "best-selling" if rank != "" else "NO VERIFICABLE"
+                        note = "" if rank != "" else f"producto fuera de los {len(best)} productos leidos"
+                    else: note = "sin ranking publico verificable"
+                else: note = "producto no resuelto en catalogo"
+            else: note = reason
+            if not t: note = "catalogo no legible; " + note
+            append("Lecturas_Catalogo", [[HOY, d, r[2], title, link, rank, total, method, note]])
+            print(d, "catalog", total, "rank", rank, method, flush=True)
+        except Exception as exc:
+            append("Lecturas_Catalogo", [[HOY, d, r[2], "", r[4], "", "", "NO VERIFICABLE", type(exc).__name__]])
 
-main()
+if __name__ == "__main__": main()
