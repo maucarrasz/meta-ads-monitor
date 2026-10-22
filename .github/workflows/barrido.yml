@@ -15,7 +15,7 @@ concurrency:
   group: barrido-apps
   cancel-in-progress: false
 env:
-  SPY_HASTA_HORA: "24"         # autorizado por Mauricio 18 oct 21:50 para este barrido
+  SPY_HASTA_HORA: "18"         # manual, solo lecturas diurnas; corte 18:00 Lima
   SPY_MAX_TANDAS: "12"         # hasta 12 tandas x 30 = 360 dominios sin alargar la corrida; si faltan, el plan sale rojo (FALTAN_TANDAS)
   SPY_SHEETS: "BARRIDO:1pfWBv6rkV6ZTGeObrhCVZUEzEUaq6og65Jf-CHi_e7E"
 jobs:
