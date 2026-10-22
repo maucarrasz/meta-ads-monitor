@@ -15,7 +15,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlencode
 
 MAX_BODY = 2048
-READ_TIMEOUT = 110
+READ_TIMEOUT = 330  # la ruta de cero (recarga x2 + espera 60s + doble check anonimo) necesita ~200-300s; con 110 mataba ceros reales (homezonestore 22-oct)
 
 
 def valid_domain(domain):
