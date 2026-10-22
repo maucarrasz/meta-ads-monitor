@@ -103,6 +103,17 @@ def read_count(url, headless=True, use_state=True, evidence=None, timeout_ms=200
                 evidence["count_text"] = no_matches.group(0); evidence["zero_clean_confirmed"] = True
             return 0, "OK"
         return "NONE", "ZERO_UNCONFIRMED"
+    # La pagina cargo pero sin conteo ni "no ads match" (cascarón vacío / render lento, p.ej. i900ma-9e 20-oct).
+    # Mismo doble check en sesion limpia antes de declarar NONE, para no tumbar la corrida por un falso sin-dato.
+    kind, n, ctext = clean_recheck(url)
+    if kind == "NUMBER":
+        if evidence is not None:
+            evidence["count_text"] = ctext; evidence["is_estimate"] = ctext.startswith("~"); evidence["none_overridden_by_clean"] = True
+        return n, "OK"
+    if kind == "ZERO":
+        if evidence is not None:
+            evidence["count_text"] = "0 tras cascaron vacio"; evidence["zero_clean_confirmed"] = True
+        return 0, "OK"
     return "NONE", "NONE"
 
 if __name__ == "__main__":

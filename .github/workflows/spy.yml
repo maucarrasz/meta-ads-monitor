@@ -14,6 +14,9 @@ on:
       por_tanda:
         description: "Dominios por tanda (defecto 30; ~4.4 min por dominio). Tandas en PARALELO: agregar tiendas no alarga la corrida"
         default: "30"
+      hasta_hora:
+        description: "Hora Lima tope para EMPEZAR lecturas (defecto 21; 24 = sin tope, para backfill manual)"
+        default: "21"
 permissions:
   contents: read
   id-token: write
@@ -69,3 +72,4 @@ jobs:
           SOLO_LISTA: ${{ github.event.inputs.solo_lista }}
           SPY_SHARD: ${{ matrix.shard }}
           SPY_NSHARDS: ${{ needs.plan.outputs.n }}
+          SPY_HASTA_HORA: ${{ github.event.inputs.hasta_hora || '21' }}
